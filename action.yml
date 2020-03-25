@@ -1,0 +1,16 @@
+name: ''
+description: ''
+author: trsvchn
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+
+branding:
+  icon: 'git-pull-request'
+  color: 'yellow'
+
+inputs:
+  GITHUB_TOKEN:
+    description: 'GITHUB_TOKEN secret'
+    required: true
