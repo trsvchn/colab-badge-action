@@ -17,13 +17,19 @@ def main():
     """Sic Mundus Creatus Est.
     """
     nbs = get_nb_list()
-    updated_nbs = update(nbs)
-    commit_changes(updated_nbs)
-    push_changes()
+    if nbs:
+        updated_nbs = update(nbs)
+        if updated_nbs:
+            commit_changes(updated_nbs)
+            push_changes()
+        else:
+            print('Nothing to add. Nothing to update!')
+    else:
+        print('There is no modified notebooks in a current commit.')
 
 
 def get_nb_list() -> list:
-    """Get list of all the changed notebooks in a current commit.
+    """Get list of all the modified notebooks in a current commit.
     """
     cmd = 'git diff-tree --no-commit-id --name-only -r HEAD'
     committed_files = sp.getoutput(cmd).split('\n')
