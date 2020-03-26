@@ -1,6 +1,11 @@
-name: ''
-description: ''
+name: 'Colab Badge Action'
 author: trsvchn
+description: 'Inserts/Updates Colab Badges within Jupyter Notebooks'
+
+inputs:
+  GITHUB_TOKEN:
+    description: 'GITHUB_TOKEN secret'
+    required: true
 
 runs:
   using: 'docker'
@@ -9,8 +14,3 @@ runs:
 branding:
   icon: 'git-pull-request'
   color: 'yellow'
-
-inputs:
-  GITHUB_TOKEN:
-    description: 'GITHUB_TOKEN secret'
-    required: true
