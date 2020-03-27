@@ -158,14 +158,15 @@ def update_badge(cell: dict, repo_name: str, branch: str, nb_path: str):
 def update_meta(cell: dict, repo_name: str, branch: str, nb_path: str):
     """Updates cell badge metadata
     """
-    current_repo = cell['metadata']['repo_name']
-    current_branch = cell['metadata']['branch']
-    current_nb_path = cell['metadata']['nb_path']
+    meta = cell['metadata']
+    current_repo = meta['repo_name']
+    current_branch = meta['branch']
+    current_nb_path = meta['nb_path']
 
     # Update cell metadata
-    for new, curr in zip([repo_name, branch, nb_path], [current_repo, current_branch, current_nb_path]):
-        if new != curr:
-            cell['metadata'].update({new: new})
+    if current_repo != repo_name: meta.update({'repo_name': repo_name})
+    if current_branch != branch: meta.update({'branch': branch})
+    if current_nb_path != nb_path: meta.update({'nb_path': nb_path})
 
 
 def write_nb(data: dict, file_path: str) -> None:
