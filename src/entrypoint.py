@@ -40,7 +40,7 @@ def get_nb_list() -> list:
     """
     cmd = 'git diff-tree --no-commit-id --name-only -r HEAD'
     committed_files = sp.getoutput(cmd).split('\n')
-    nbs = [nb for nb in committed_files if nb.endswith('.ipynb')]
+    nbs = [nb for nb in committed_files if (nb.endswith('.ipynb') and os.path.isfile(nb))]
     return nbs
 
 
