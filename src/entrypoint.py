@@ -78,14 +78,14 @@ def check_cells(data: dict, repo_name: str, branch: str, nb_path: str, modified:
     """Looks for markdown cells. Then adds or updates Colab badge code.
     """
     cells = data['cells']  # get cells
-    for cell in cells:
+    for i, cell in enumerate(cells):
         # Check only markdown cells
         if cell['cell_type'] == 'markdown':
             if cell['metadata']:
                 # If a cell already has a badge - check the repo and branch
                 if cell['metadata'].get('badge'):
                     # Update repo, branch, file path
-                    print(f'Updating {nb_path} badge info...')
+                    print(f'Updating badge info: {nb_path}: cell {i}...')
                     update_badge(cell, repo_name, branch, nb_path)
                     # Update cell badge meta
                     update_meta(cell, repo_name, branch, nb_path)
