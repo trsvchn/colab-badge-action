@@ -18,9 +18,16 @@ def main():
     """
     nbs = get_nb_list()
     if nbs:
-        updated_nbs = update(nbs)
-        if updated_nbs:
-            commit_changes(updated_nbs)
+        modified_nbs = update(nbs)
+        if modified_nbs:
+            for nb in modified_nbs.items():
+                nb_path, data = nb
+                # Export notebook
+                print(f'Saving modified {nb_path}...')
+                write_nb(data, nb_path)
+            # Commit changes
+            commit_changes(list(modified_nbs.keys()))
+            # Push
             push_changes()
         else:
             print('Nothing to add. Nothing to update!')
@@ -37,10 +44,10 @@ def get_nb_list() -> list:
     return nbs
 
 
-def update(notebooks: list) -> list:
+def update(notebooks: list) -> dict:
     """Iterates over changed notebooks list.
     """
-    updated_nbs = []  # To track updated notebooks
+    updated_nbs = {}  # To track updated notebooks
 
     for nb in notebooks:
         # Import notebook data
@@ -67,7 +74,7 @@ def prepare_badge_code(repo_name: str, branch: str, nb_path: str) -> str:
     return code
 
 
-def check_cells(data: dict, repo_name: str, branch: str, nb_path: str, updated: list):
+def check_cells(data: dict, repo_name: str, branch: str, nb_path: str, modified: dict):
     """Looks for markdown cells. Then adds or updates Colab badge code.
     """
     cells = data['cells']  # get cells
@@ -82,17 +89,11 @@ def check_cells(data: dict, repo_name: str, branch: str, nb_path: str, updated: 
                     update_badge(cell, repo_name, branch, nb_path)
                     # Update cell badge meta
                     update_meta(cell, repo_name, branch, nb_path)
-                    # Export notebook
-                    print(f'Saving modified {nb_path}...')
-                    write_nb(data, nb_path)
-                    # For the future commit
-                    updated.append(nb_path)
+                    modified.update({nb_path: data})
                     continue
             # Add badge code, add metadata
             add_badge(cell, repo_name, branch, nb_path)
-            print(f'Saving modified {nb_path}...')
-            write_nb(data, nb_path)
-            updated.append(nb_path)
+            modified.update({nb_path: data})
         else:
             continue
 
