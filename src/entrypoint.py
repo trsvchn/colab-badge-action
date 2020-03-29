@@ -1,6 +1,7 @@
 import os
 import re
 import json
+from glob import iglob
 import subprocess as sp
 
 
@@ -11,22 +12,28 @@ GITHUB_REF = os.environ['GITHUB_REF']
 _, BRANCH = GITHUB_REF.rsplit('/', 1)
 GITHUB_ACTOR = os.environ['GITHUB_ACTOR']
 GITHUB_TOKEN = os.environ['INPUT_GITHUB_TOKEN']
+CHECK = os.environ['INPUT_CHECK']  # 'all' | 'latest'
+UPDATE = os.environ['INPUT_UPDATE']
 
 
 def main():
     """Sic Mundus Creatus Est.
     """
-    nbs = get_nb_list()
+    if CHECK:
+        if CHECK == 'all':
+            nbs = get_all_nbs()
+        elif CHECK == 'latest':
+            nbs = get_modified_nbs()
+        else:
+            raise ValueError(f'{CHECK} is a wrong value. Expecting all or latest')
+    else:
+        nbs = []
+
     if nbs:
-        modified_nbs = update(nbs)
+        modified_nbs = check_nb(nbs)
         if modified_nbs:
-            for nb in modified_nbs.items():
-                nb_path, data = nb
-                # Export notebook
-                print(f'Saving modified {nb_path}...')
-                write_nb(data, nb_path)
             # Commit changes
-            commit_changes(list(modified_nbs.keys()))
+            commit_changes(modified_nbs)
             # Push
             push_changes()
         else:
@@ -35,7 +42,7 @@ def main():
         print('There is no modified notebooks in a current commit.')
 
 
-def get_nb_list() -> list:
+def get_modified_nbs() -> list:
     """Get list of all the modified notebooks in a current commit.
     """
     cmd = 'git diff-tree --no-commit-id --name-only -r HEAD'
@@ -44,10 +51,17 @@ def get_nb_list() -> list:
     return nbs
 
 
-def update(notebooks: list) -> dict:
-    """Iterates over changed notebooks list.
+def get_all_nbs() -> iter:
+    """Get list of all the notebooks a repo.
     """
-    updated_nbs = {}  # To track updated notebooks
+    nbs = iglob('**/*.ipynb', recursive=True)
+    return nbs
+
+
+def check_nb(notebooks: list) -> list:
+    """Iterates over notebooks list.
+    """
+    updated_nbs = []  # To track updated notebooks
 
     for nb in notebooks:
         # Import notebook data
@@ -74,50 +88,35 @@ def prepare_badge_code(repo_name: str, branch: str, nb_path: str) -> str:
     return code
 
 
-def check_cells(data: dict, repo_name: str, branch: str, nb_path: str, modified: dict):
+def check_cells(data: dict, repo_name: str, branch: str, nb_path: str, modified: list):
     """Looks for markdown cells. Then adds or updates Colab badge code.
     """
-    cells = data['cells']  # get cells
-    for i, cell in enumerate(cells):
+    save = False
+    for i, cell in enumerate(data['cells']):
         # Check only markdown cells
         if cell['cell_type'] == 'markdown':
             if cell['metadata']:
                 # If a cell already has a badge - check the repo and branch
-                if cell['metadata'].get('badge'):
-                    # Update repo, branch, file path
-                    print(f'Updating badge info: {nb_path}: cell {i}...')
-                    update_badge(cell, repo_name, branch, nb_path)
-                    # Update cell badge meta
-                    update_meta(cell, repo_name, branch, nb_path)
-                    modified.update({nb_path: data})
-                    continue
+                if UPDATE and cell['metadata'].get('badge'):
+                    # Update repo, branch, file path, cell badge meta
+                    save = update_badge(cell, repo_name, branch, nb_path)
             # Add badge code, add metadata
-            add_badge(cell, repo_name, branch, nb_path)
-            modified.update({nb_path: data})
+            save = add_badge(cell, repo_name, branch, nb_path)
         else:
             continue
+
+    # Export if modified
+    if save:
+        print(f'Saving modified {nb_path}...')
+        write_nb(data, nb_path)
+        modified.append(nb_path)
 
 
 def add_badge(cell: dict, repo_name: str, branch: str, nb_path: str):
     """Inserts "Open in Colab" badge.
     """
+    modified = False
     pattern = '{{ badge }}'  # badge variable
-    text = cell['source']
-    for i, line in enumerate(text):
-        if pattern in line:
-            badge = prepare_badge_code(repo_name, branch, nb_path)
-            print(f'Inserting badge for {nb_path}...')
-            new_line = line.replace(pattern, badge)
-            # Add metadata about cell
-            text[i] = new_line
-            add_meta(cell, repo_name, branch, nb_path)
-        else:
-            continue
-
-
-def add_meta(cell: dict, repo_name: str, branch: str, nb_path: str) -> None:
-    """Adds meta to cell with a badge.
-    """
     meta = {
         'badge': True,
         'repo_name': repo_name,
@@ -125,12 +124,26 @@ def add_meta(cell: dict, repo_name: str, branch: str, nb_path: str) -> None:
         'nb_path': nb_path,
         'comment': 'This badge cell was added by colab-badge-action',
     }
-    cell['metadata'].update(meta)
+
+    text = cell['source']
+    for i, line in enumerate(text):
+        if pattern in line:
+            badge = prepare_badge_code(repo_name, branch, nb_path)
+            print(f'{nb_path}: Inserting badge...')
+            new_line = line.replace(pattern, badge)
+            # Add metadata about cell
+            text[i] = new_line
+            cell['metadata'].update(meta)
+            modified = True
+        else:
+            continue
+    return modified
 
 
 def update_badge(cell: dict, repo_name: str, branch: str, nb_path: str):
-    """Updates already added by action badge code.
+    """Updates added badge code.
     """
+    modified = False
     a_pattern = re.compile(r'<a (.*?)</a>')
 
     meta = cell['metadata']
@@ -147,26 +160,20 @@ def update_badge(cell: dict, repo_name: str, branch: str, nb_path: str):
             for link in links:
                 if SRC and ALT in link:
                     if (curr_repo != repo_name) or (curr_branch != branch) or (curr_nb_path != nb_path):
+                        print(f'{nb_path} cell {i}: Updating badge info...')
                         new_line = line.replace(link, code)
                         text[i] = new_line
+
+                        # Updates cell badge metadata
+                        if curr_repo != repo_name: meta.update({'repo_name': repo_name})
+                        if curr_branch != branch: meta.update({'branch': branch})
+                        if curr_nb_path != nb_path: meta.update({'nb_path': nb_path})
+                        modified = True
                 else:
                     continue
         else:
             continue
-
-
-def update_meta(cell: dict, repo_name: str, branch: str, nb_path: str):
-    """Updates cell badge metadata
-    """
-    meta = cell['metadata']
-    current_repo = meta['repo_name']
-    current_branch = meta['branch']
-    current_nb_path = meta['nb_path']
-
-    # Update cell metadata
-    if current_repo != repo_name: meta.update({'repo_name': repo_name})
-    if current_branch != branch: meta.update({'branch': branch})
-    if current_nb_path != nb_path: meta.update({'nb_path': nb_path})
+    return modified
 
 
 def write_nb(data: dict, file_path: str) -> None:
@@ -187,7 +194,7 @@ def commit_changes(nbs: list):
 
     nbs = ' '.join(set(nbs))
     git_add = f'git add {nbs}'
-    git_commit = 'git commit -m "Add/Update Colab badges"'
+    git_commit = 'git commit -m "Add/Update Colab Badges"'
 
     print(f'Committing {nbs}...')
 
