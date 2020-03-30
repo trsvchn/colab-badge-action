@@ -92,16 +92,16 @@ def check_cells(data: dict, repo_name: str, branch: str, nb_path: str, modified:
     """Looks for markdown cells. Then adds or updates Colab badge code.
     """
     save = False
-    for i, cell in enumerate(data['cells']):
+    for cell in data['cells']:
         # Check only markdown cells
         if cell['cell_type'] == 'markdown':
             if cell['metadata']:
                 # If a cell already has a badge - check the repo and branch
                 if UPDATE and cell['metadata'].get('badge'):
                     # Update repo, branch, file path, cell badge meta
-                    save = update_badge(cell, repo_name, branch, nb_path)
+                    save = True if update_badge(cell, repo_name, branch, nb_path) else save
             # Add badge code, add metadata
-            save = add_badge(cell, repo_name, branch, nb_path)
+            save = True if add_badge(cell, repo_name, branch, nb_path) else save
         else:
             continue
 
@@ -160,7 +160,7 @@ def update_badge(cell: dict, repo_name: str, branch: str, nb_path: str):
             for link in links:
                 if SRC and ALT in link:
                     if (curr_repo != repo_name) or (curr_branch != branch) or (curr_nb_path != nb_path):
-                        print(f'{nb_path} cell {i}: Updating badge info...')
+                        print(f'{nb_path}: Updating badge info...')
                         new_line = line.replace(link, code)
                         text[i] = new_line
 
@@ -180,7 +180,7 @@ def write_nb(data: dict, file_path: str) -> None:
     """Saves modified jupyter notebook.
     """
     with open(file_path, 'w') as f:
-        json.dump(data, f)
+        json.dump(data, f, indent=1)
 
 
 def commit_changes(nbs: list):

@@ -1,6 +1,6 @@
 # Colab Badge GitHub Action
 
-> Adds "Open in Colab" badges for Jupyter Notebooks, automatically updates
+> Adds "Open in Colab" badges to Jupyter Notebooks, automatically updates
 badges on file renaming, branching or forking.
 
 
