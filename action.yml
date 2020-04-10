@@ -14,6 +14,10 @@ inputs:
     description: 'Update badges. Only badges added by this action will be updated'
     default: true
     required: false
+  target_branch:
+    description: 'Branch that the badge will target. Defaults to the current branch.'
+    default: ''
+    required: false
 
 runs:
   using: 'docker'
