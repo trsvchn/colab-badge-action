@@ -207,7 +207,7 @@ def push_changes():
     """
     remote_repo = f'"https://{GITHUB_ACTOR}:{GITHUB_TOKEN}@github.com/{GITHUB_REPOSITORY}.git"'
     git_push = f'git push {remote_repo} HEAD:{GITHUB_REF}'
-
+    print(f'running "{git_push}"...')
     sp.call(git_push, shell=True)
 
 
