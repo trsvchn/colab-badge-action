@@ -18,6 +18,10 @@ inputs:
     description: 'Branch that the badge will target. Defaults to the current branch.'
     default: ''
     required: false
+  target_repository:
+    description: 'Repository that the badge will target. Defaults to the current repository.'
+    default: ''
+    required: false
 
 runs:
   using: 'docker'
