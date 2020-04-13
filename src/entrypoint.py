@@ -7,7 +7,7 @@ import subprocess as sp
 
 SRC = '"https://colab.research.google.com/assets/colab-badge.svg"'
 ALT = '"Open In Colab"'
-GITHUB_REPOSITORY = os.environ['GITHUB_REPOSITORY']
+GITHUB_REPOSITORY = os.environ['INPUT_TARGET_REPOSITORY'] or os.environ['GITHUB_REPOSITORY']
 GITHUB_REF = os.environ['GITHUB_REF']
 BRANCH = os.environ['INPUT_TARGET_BRANCH'] or GITHUB_REF.rsplit('/', 1)[1]
 GITHUB_ACTOR = os.environ['GITHUB_ACTOR']
