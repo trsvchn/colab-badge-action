@@ -7,9 +7,22 @@ import subprocess as sp
 
 SRC = '"https://colab.research.google.com/assets/colab-badge.svg"'
 ALT = '"Open In Colab"'
-GITHUB_REPOSITORY = os.environ['INPUT_TARGET_REPOSITORY'] or os.environ['GITHUB_REPOSITORY']
+
+GITHUB_EVENT_NAME = os.environ['GITHUB_EVENT_NAME']
+
+# Set repository
+CURRENT_REPOSITORY = os.environ['GITHUB_REPOSITORY']
+TARGET_REPOSITORY = os.environ['INPUT_TARGET_REPOSITORY'] or CURRENT_REPOSITORY  # TODO: How about PRs from forks?
+
+# Set branches
 GITHUB_REF = os.environ['GITHUB_REF']
-BRANCH = os.environ['INPUT_TARGET_BRANCH'] or GITHUB_REF.rsplit('/', 1)[1]
+GITHUB_HEAD_REF = os.environ['GITHUB_HEAD_REF']
+GITHUB_BASE_REF = os.environ['GITHUB_BASE_REF']
+CURRENT_BRANCH = GITHUB_HEAD_REF or GITHUB_REF.rsplit('/', 1)[-1]
+TARGET_BRANCH = os.environ['INPUT_TARGET_BRANCH'] or CURRENT_BRANCH
+PULL_REQUEST_BRANCH = os.environ['INPUT_PULL_REQUEST_BRANCH'] or GITHUB_BASE_REF
+BRANCH = PULL_REQUEST_BRANCH if GITHUB_EVENT_NAME == 'pull_request' else TARGET_BRANCH
+
 GITHUB_ACTOR = os.environ['GITHUB_ACTOR']
 GITHUB_TOKEN = os.environ['INPUT_GITHUB_TOKEN']
 CHECK = os.environ['INPUT_CHECK']  # 'all' | 'latest'
@@ -67,7 +80,7 @@ def check_nb(notebooks: list) -> list:
         # Import notebook data
         nb_data = read_nb(nb)
         # Add badge to right places, add right meta to the corresponding cell
-        check_cells(nb_data, GITHUB_REPOSITORY, BRANCH, nb, updated_nbs)
+        check_cells(nb_data, TARGET_REPOSITORY, BRANCH, nb, updated_nbs)
 
     return updated_nbs
 
@@ -195,9 +208,11 @@ def commit_changes(nbs: list):
     nbs = ' '.join(set(nbs))
     git_add = f'git add {nbs}'
     git_commit = 'git commit -m "Add/Update Colab Badges"'
+    git_checkout = f'git checkout {TARGET_BRANCH}'
 
     print(f'Committing {nbs}...')
 
+    sp.call(git_checkout, shell=True)
     sp.call(git_add, shell=True)
     sp.call(git_commit, shell=True)
 
@@ -205,9 +220,9 @@ def commit_changes(nbs: list):
 def push_changes():
     """Pushes commit.
     """
-    remote_repo = f'"https://{GITHUB_ACTOR}:{GITHUB_TOKEN}@github.com/{GITHUB_REPOSITORY}.git"'
-    git_push = f'git push {remote_repo} HEAD:{GITHUB_REF}'
-
+    set_url = f'git remote set-url origin https://x-access-token:{GITHUB_TOKEN}@github.com/{TARGET_REPOSITORY}'
+    git_push = f'git push origin {TARGET_BRANCH}'
+    sp.call(set_url, shell=True)
     sp.call(git_push, shell=True)
 
 
