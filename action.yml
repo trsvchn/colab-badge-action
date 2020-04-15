@@ -19,11 +19,15 @@ inputs:
     default: ''
     required: false
   pull_request_branch:
-    description: 'Compare badge info with this branch on pull_request. Defaults to GITHUB_BASE_REF.'
+    description: 'Branch that the badge will target on pull_request. Defaults to GITHUB_BASE_REF.'
     default: ''
     required: false
   target_repository:
     description: 'Repository that the badge will target. Defaults to the current repository.'
+    default: ''
+    required: false
+  pull_request_repository:
+    description: 'Repository that the badge will target on pull_request. Defaults to '''
     default: ''
     required: false
 

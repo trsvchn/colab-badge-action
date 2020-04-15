@@ -13,6 +13,8 @@ GITHUB_EVENT_NAME = os.environ['GITHUB_EVENT_NAME']
 # Set repository
 CURRENT_REPOSITORY = os.environ['GITHUB_REPOSITORY']
 TARGET_REPOSITORY = os.environ['INPUT_TARGET_REPOSITORY'] or CURRENT_REPOSITORY  # TODO: How about PRs from forks?
+PULL_REQUEST_REPOSITORY = os.environ['INPUT_PULL_REQUEST_REPOSITORY']
+REPOSITORY = PULL_REQUEST_REPOSITORY if GITHUB_EVENT_NAME == 'pull_request' else TARGET_REPOSITORY
 
 # Set branches
 GITHUB_REF = os.environ['GITHUB_REF']
@@ -80,7 +82,7 @@ def check_nb(notebooks: list) -> list:
         # Import notebook data
         nb_data = read_nb(nb)
         # Add badge to right places, add right meta to the corresponding cell
-        check_cells(nb_data, TARGET_REPOSITORY, BRANCH, nb, updated_nbs)
+        check_cells(nb_data, REPOSITORY, BRANCH, nb, updated_nbs)
 
     return updated_nbs
 
@@ -206,9 +208,9 @@ def commit_changes(nbs: list):
     sp.call(set_user, shell=True)
 
     nbs = ' '.join(set(nbs))
+    git_checkout = f'git checkout {TARGET_BRANCH}'
     git_add = f'git add {nbs}'
     git_commit = 'git commit -m "Add/Update Colab Badges"'
-    git_checkout = f'git checkout {TARGET_BRANCH}'
 
     print(f'Committing {nbs}...')
 
