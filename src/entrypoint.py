@@ -13,7 +13,7 @@ GITHUB_EVENT_NAME = os.environ['GITHUB_EVENT_NAME']
 # Set repository
 CURRENT_REPOSITORY = os.environ['GITHUB_REPOSITORY']
 TARGET_REPOSITORY = os.environ['INPUT_TARGET_REPOSITORY'] or CURRENT_REPOSITORY  # TODO: How about PRs from forks?
-PULL_REQUEST_REPOSITORY = os.environ['INPUT_PULL_REQUEST_REPOSITORY']
+PULL_REQUEST_REPOSITORY = os.environ['INPUT_PULL_REQUEST_REPOSITORY'] or TARGET_REPOSITORY 
 REPOSITORY = PULL_REQUEST_REPOSITORY if GITHUB_EVENT_NAME == 'pull_request' else TARGET_REPOSITORY
 
 # Set branches
@@ -26,6 +26,7 @@ PULL_REQUEST_BRANCH = os.environ['INPUT_PULL_REQUEST_BRANCH'] or GITHUB_BASE_REF
 BRANCH = PULL_REQUEST_BRANCH if GITHUB_EVENT_NAME == 'pull_request' else TARGET_BRANCH
 
 GITHUB_ACTOR = os.environ['GITHUB_ACTOR']
+GITHUB_REPOSITORY_OWNER = os.environ['GITHUB_REPOSITORY_OWNER']
 GITHUB_TOKEN = os.environ['INPUT_GITHUB_TOKEN']
 CHECK = os.environ['INPUT_CHECK']  # 'all' | 'latest'
 UPDATE = os.environ['INPUT_UPDATE']
@@ -34,6 +35,9 @@ UPDATE = os.environ['INPUT_UPDATE']
 def main():
     """Sic Mundus Creatus Est.
     """
+    if (GITHUB_EVENT_NAME == 'pull_request') and (GITHUB_ACTOR != GITHUB_REPOSITORY_OWNER):
+        return
+
     if CHECK:
         if CHECK == 'all':
             nbs = get_all_nbs()

@@ -27,7 +27,7 @@ inputs:
     default: ''
     required: false
   pull_request_repository:
-    description: 'Repository that the badge will target on pull_request. Defaults to '''
+    description: 'Repository that the badge will target on pull_request. Defaults to TARGET_REPOSITORY'
     default: ''
     required: false
 
