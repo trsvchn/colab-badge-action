@@ -199,7 +199,7 @@ def write_nb(data: dict, file_path: str) -> None:
     """Saves modified jupyter notebook.
     """
     with open(file_path, 'w') as f:
-        json.dump(data, f, indent=1)
+        json.dump(data, f, indent=2)
 
 
 def commit_changes(nbs: list):
