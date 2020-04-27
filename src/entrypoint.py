@@ -213,15 +213,13 @@ def write_nb(data: dict, file_path: str) -> None:
 def commit_changes(nbs: list):
     """Commits changes.
     """
-    set_email = ['git', 'config', '--local', 'user.email',
-                 'colab-badge-action@master']
-    set_user = ['git', 'config', '--local', 'user.name', 'Colab Badge Action']
+    set_email = ['git', 'config', 'user.email', 'colab-badge-action@master']
+    set_user = ['git', 'config', 'user.name', 'Colab Badge Action']
 
     sp.run(set_email, check=True)
     sp.run(set_user, check=True)
 
     nbs = ' '.join(set(nbs))
-    git_checkout = ['git', 'checkout', 'origin', CURRENT_BRANCH]
     git_add = ['git', 'add', nbs]
     git_commit = ['git', 'commit', '-m', 'Add/Update Colab Badges']
 
