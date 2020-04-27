@@ -221,7 +221,7 @@ def commit_changes(nbs: list):
     sp.run(set_user, check=True)
 
     nbs = ' '.join(set(nbs))
-    git_checkout = ['git', 'checkout', CURRENT_BRANCH]
+    git_checkout = ['git', 'checkout', 'origin', CURRENT_BRANCH]
     git_add = ['git', 'add', nbs]
     git_commit = ['git', 'commit', '-m', 'Add/Update Colab Badges']
 
