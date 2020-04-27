@@ -212,7 +212,7 @@ def commit_changes(nbs: list):
     sp.call(set_user, shell=True)
 
     nbs = ' '.join(set(nbs))
-    git_checkout = f'git checkout {TARGET_BRANCH}'
+    git_checkout = f'git checkout {CURRENT_BRANCH}'
     git_add = f'git add {nbs}'
     git_commit = 'git commit -m "Add/Update Colab Badges"'
 
@@ -226,8 +226,8 @@ def commit_changes(nbs: list):
 def push_changes():
     """Pushes commit.
     """
-    set_url = f'git remote set-url origin https://x-access-token:{GITHUB_TOKEN}@github.com/{TARGET_REPOSITORY}'
-    git_push = f'git push origin {TARGET_BRANCH}'
+    set_url = f'git remote set-url origin https://x-access-token:{GITHUB_TOKEN}@github.com/{CURRENT_REPOSITORY}'
+    git_push = f'git push origin {CURRENT_BRANCH}'
     sp.call(set_url, shell=True)
     sp.call(git_push, shell=True)
 
