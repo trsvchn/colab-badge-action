@@ -36,10 +36,6 @@ UPDATE = os.environ['INPUT_UPDATE']
 def main():
     """Sic Mundus Creatus Est.
     """
-    if (GITHUB_EVENT_NAME == 'pull_request') and (
-            GITHUB_ACTOR != GITHUB_REPOSITORY_OWNER):
-        return
-
     if CHECK:
         if CHECK == 'all':
             nbs = get_all_nbs()
