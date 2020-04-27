@@ -225,7 +225,6 @@ def commit_changes(nbs: list):
 
     print(f'Committing {nbs}...')
 
-    sp.run(git_checkout, check=True)
     sp.run(git_add, check=True)
     sp.run(git_commit, check=True)
 
