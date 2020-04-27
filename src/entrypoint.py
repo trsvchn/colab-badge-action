@@ -208,8 +208,8 @@ def commit_changes(nbs: list):
     set_email = 'git config --local user.email "colab-badge-action@master"'
     set_user = 'git config --local user.name "Colab Badge Action"'
 
-    sp.call(set_email, shell=True)
-    sp.call(set_user, shell=True)
+    sp.check_call(set_email)
+    sp.check_call(set_user)
 
     nbs = ' '.join(set(nbs))
     git_checkout = f'git checkout {CURRENT_BRANCH}'
@@ -218,9 +218,9 @@ def commit_changes(nbs: list):
 
     print(f'Committing {nbs}...')
 
-    sp.call(git_checkout, shell=True)
-    sp.call(git_add, shell=True)
-    sp.call(git_commit, shell=True)
+    sp.check_call(git_checkout)
+    sp.check_call(git_add)
+    sp.check_call(git_commit)
 
 
 def push_changes():
@@ -228,8 +228,8 @@ def push_changes():
     """
     set_url = f'git remote set-url origin https://x-access-token:{GITHUB_TOKEN}@github.com/{CURRENT_REPOSITORY}'
     git_push = f'git push origin {CURRENT_BRANCH}'
-    sp.call(set_url, shell=True)
-    sp.call(git_push, shell=True)
+    sp.check_call(set_url)
+    sp.check_call(git_push)
 
 
 if __name__ == '__main__':
