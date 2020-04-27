@@ -224,9 +224,9 @@ def commit_changes(nbs: list):
     sp.check_call(set_user)
 
     nbs = ' '.join(set(nbs))
-    git_checkout = f'git checkout {CURRENT_BRANCH}'
-    git_add = f'git add {nbs}'
-    git_commit = 'git commit -m "Add/Update Colab Badges"'
+    git_checkout = ['git', 'checkout', CURRENT_BRANCH]
+    git_add = ['git', 'add', nbs]
+    git_commit = ['git', 'commit', '-m', 'Add/Update Colab Badges']
 
     print(f'Committing {nbs}...')
 
@@ -238,8 +238,11 @@ def commit_changes(nbs: list):
 def push_changes():
     """Pushes commit.
     """
-    set_url = f'git remote set-url origin https://x-access-token:{GITHUB_TOKEN}@github.com/{CURRENT_REPOSITORY}'
-    git_push = f'git push origin {CURRENT_BRANCH}'
+    set_url = [
+        'git', 'remote', 'set-url', 'origin',
+        f'https://x-access-token:{GITHUB_TOKEN}@github.com/'
+        f'{CURRENT_REPOSITORY}']
+    git_push = ['git', 'push', 'origin', CURRENT_BRANCH]
     sp.check_call(set_url)
     sp.check_call(git_push)
 
