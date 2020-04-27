@@ -4,7 +4,6 @@ import json
 from glob import iglob
 import subprocess as sp
 
-
 SRC = '"https://colab.research.google.com/assets/colab-badge.svg"'
 ALT = '"Open In Colab"'
 
@@ -12,8 +11,10 @@ GITHUB_EVENT_NAME = os.environ['GITHUB_EVENT_NAME']
 
 # Set repository
 CURRENT_REPOSITORY = os.environ['GITHUB_REPOSITORY']
-TARGET_REPOSITORY = os.environ['INPUT_TARGET_REPOSITORY'] or CURRENT_REPOSITORY  # TODO: How about PRs from forks?
-PULL_REQUEST_REPOSITORY = os.environ['INPUT_PULL_REQUEST_REPOSITORY'] or TARGET_REPOSITORY 
+TARGET_REPOSITORY = os.environ[
+                        'INPUT_TARGET_REPOSITORY'] or CURRENT_REPOSITORY  # TODO: How about PRs from forks?
+PULL_REQUEST_REPOSITORY = os.environ[
+                              'INPUT_PULL_REQUEST_REPOSITORY'] or TARGET_REPOSITORY
 REPOSITORY = PULL_REQUEST_REPOSITORY if GITHUB_EVENT_NAME == 'pull_request' else TARGET_REPOSITORY
 
 # Set branches
@@ -35,7 +36,8 @@ UPDATE = os.environ['INPUT_UPDATE']
 def main():
     """Sic Mundus Creatus Est.
     """
-    if (GITHUB_EVENT_NAME == 'pull_request') and (GITHUB_ACTOR != GITHUB_REPOSITORY_OWNER):
+    if (GITHUB_EVENT_NAME == 'pull_request') and (
+            GITHUB_ACTOR != GITHUB_REPOSITORY_OWNER):
         return
 
     if CHECK:
@@ -44,7 +46,8 @@ def main():
         elif CHECK == 'latest':
             nbs = get_modified_nbs()
         else:
-            raise ValueError(f'{CHECK} is a wrong value. Expecting all or latest')
+            raise ValueError(
+                f'{CHECK} is a wrong value. Expecting all or latest')
     else:
         nbs = []
 
@@ -66,7 +69,8 @@ def get_modified_nbs() -> list:
     """
     cmd = 'git diff-tree --no-commit-id --name-only -r HEAD'
     committed_files = sp.getoutput(cmd).split('\n')
-    nbs = [nb for nb in committed_files if (nb.endswith('.ipynb') and os.path.isfile(nb))]
+    nbs = [nb for nb in committed_files if
+           (nb.endswith('.ipynb') and os.path.isfile(nb))]
     return nbs
 
 
@@ -107,7 +111,8 @@ def prepare_badge_code(repo_name: str, branch: str, nb_path: str) -> str:
     return code
 
 
-def check_cells(data: dict, repo_name: str, branch: str, nb_path: str, modified: list):
+def check_cells(data: dict, repo_name: str, branch: str, nb_path: str,
+                modified: list):
     """Looks for markdown cells. Then adds or updates Colab badge code.
     """
     save = False
@@ -118,7 +123,8 @@ def check_cells(data: dict, repo_name: str, branch: str, nb_path: str, modified:
                 # If a cell already has a badge - check the repo and branch
                 if UPDATE and cell['metadata'].get('badge'):
                     # Update repo, branch, file path, cell badge meta
-                    save = True if update_badge(cell, repo_name, branch, nb_path) else save
+                    save = True if update_badge(cell, repo_name, branch,
+                                                nb_path) else save
             # Add badge code, add metadata
             save = True if add_badge(cell, repo_name, branch, nb_path) else save
         else:
@@ -166,7 +172,8 @@ def update_badge(cell: dict, repo_name: str, branch: str, nb_path: str):
     a_pattern = re.compile(r'<a (.*?)</a>')
 
     meta = cell['metadata']
-    curr_repo, curr_branch, curr_nb_path = meta['repo_name'], meta['branch'], meta['nb_path']
+    curr_repo, curr_branch, curr_nb_path = (meta['repo_name'], meta['branch'],
+                                            meta['nb_path'])
 
     new_href = f'"https://colab.research.google.com/github/{repo_name}/blob/{branch}/{nb_path}"'
     code = f'href={new_href} target="_parent"><img src={SRC} alt={ALT}/>'
@@ -178,15 +185,19 @@ def update_badge(cell: dict, repo_name: str, branch: str, nb_path: str):
         if links:
             for link in links:
                 if SRC and ALT in link:
-                    if (curr_repo != repo_name) or (curr_branch != branch) or (curr_nb_path != nb_path):
+                    if (curr_repo != repo_name) or (curr_branch != branch) or (
+                            curr_nb_path != nb_path):
                         print(f'{nb_path}: Updating badge info...')
                         new_line = line.replace(link, code)
                         text[i] = new_line
 
                         # Updates cell badge metadata
-                        if curr_repo != repo_name: meta.update({'repo_name': repo_name})
-                        if curr_branch != branch: meta.update({'branch': branch})
-                        if curr_nb_path != nb_path: meta.update({'nb_path': nb_path})
+                        if curr_repo != repo_name: meta.update(
+                            {'repo_name': repo_name})
+                        if curr_branch != branch: meta.update(
+                            {'branch': branch})
+                        if curr_nb_path != nb_path: meta.update(
+                            {'nb_path': nb_path})
                         modified = True
                 else:
                     continue
@@ -205,11 +216,12 @@ def write_nb(data: dict, file_path: str) -> None:
 def commit_changes(nbs: list):
     """Commits changes.
     """
-    set_email = 'git config --local user.email "colab-badge-action@master"'
-    set_user = 'git config --local user.name "Colab Badge Action"'
+    set_email = ['git', 'config', '--local', 'user.email',
+                 'colab-badge-action@master']
+    set_user = ['git', 'config', '--local', 'user.name', 'Colab Badge Action']
 
-    sp.call(set_email, shell=True)
-    sp.call(set_user, shell=True)
+    sp.check_call(set_email)
+    sp.check_call(set_user)
 
     nbs = ' '.join(set(nbs))
     git_checkout = f'git checkout {CURRENT_BRANCH}'
@@ -218,9 +230,9 @@ def commit_changes(nbs: list):
 
     print(f'Committing {nbs}...')
 
-    sp.call(git_checkout, shell=True)
-    sp.call(git_add, shell=True)
-    sp.call(git_commit, shell=True)
+    sp.check_call(git_checkout)
+    sp.check_call(git_add)
+    sp.check_call(git_commit)
 
 
 def push_changes():
@@ -228,8 +240,8 @@ def push_changes():
     """
     set_url = f'git remote set-url origin https://x-access-token:{GITHUB_TOKEN}@github.com/{CURRENT_REPOSITORY}'
     git_push = f'git push origin {CURRENT_BRANCH}'
-    sp.call(set_url, shell=True)
-    sp.call(git_push, shell=True)
+    sp.check_call(set_url)
+    sp.check_call(git_push)
 
 
 if __name__ == '__main__':
