@@ -67,8 +67,9 @@ def main():
 def get_modified_nbs() -> list:
     """Get list of all the modified notebooks in a current commit.
     """
-    cmd = 'git diff-tree --no-commit-id --name-only -r HEAD'
-    committed_files = sp.getoutput(cmd).split('\n')
+    cmd = ['git', 'diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD']
+    committed_files = sp.run(
+        cmd, check=True, capture_output=True).stdout.split('\n')
     nbs = [nb for nb in committed_files if
            (nb.endswith('.ipynb') and os.path.isfile(nb))]
     return nbs
@@ -220,8 +221,8 @@ def commit_changes(nbs: list):
                  'colab-badge-action@master']
     set_user = ['git', 'config', '--local', 'user.name', 'Colab Badge Action']
 
-    sp.check_call(set_email)
-    sp.check_call(set_user)
+    sp.run(set_email, check=True)
+    sp.run(set_user, check=True)
 
     nbs = ' '.join(set(nbs))
     git_checkout = ['git', 'checkout', CURRENT_BRANCH]
@@ -230,16 +231,16 @@ def commit_changes(nbs: list):
 
     print(f'Committing {nbs}...')
 
-    sp.check_call(git_checkout)
-    sp.check_call(git_add)
-    sp.check_call(git_commit)
+    sp.run(git_checkout, check=True)
+    sp.run(git_add, check=True)
+    sp.run(git_commit, check=True)
 
 
 def push_changes():
     """Pushes commit.
     """
     git_push = ['git', 'push', 'origin', CURRENT_BRANCH]
-    sp.check_call(git_push)
+    sp.run(git_push, check=True)
 
 
 if __name__ == '__main__':
