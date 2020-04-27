@@ -232,7 +232,11 @@ def commit_changes(nbs: list):
 def push_changes():
     """Pushes commit.
     """
+    set_url = ['git', 'remote', 'set-url', 'origin',
+               f'https://x-access-token:{GITHUB_TOKEN}@github.com/'
+               f'{CURRENT_REPOSITORY}']
     git_push = ['git', 'push', 'origin', CURRENT_BRANCH]
+    sp.run(set_url, check=True)
     sp.run(git_push, check=True)
 
 
