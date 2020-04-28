@@ -19,7 +19,7 @@ CURRENT_BRANCH = GITHUB_HEAD_REF or GITHUB_REF.rsplit('/', 1)[-1]
 TARGET_BRANCH = os.environ['INPUT_TARGET_BRANCH'] or CURRENT_BRANCH
 
 CHECK = os.environ['INPUT_CHECK']  # 'all' | 'latest'
-UPDATE = os.environ['INPUT_UPDATE']
+UPDATE = os.environ['INPUT_UPDATE']  # True | False
 
 
 def main():
@@ -188,12 +188,12 @@ def write_nb(data: dict, file_path: str) -> None:
 
 
 def set_output(modified_nbs=None) -> None:
-    """Sets the action output as a environmental variable.
+    """Sets the modified notebooks as a environmental variable (set-env) and step output (set-output).
     """
     modified_nbs = modified_nbs or []
-    cmd = lambda command, name: f"echo ::{command} name={name}::{' '.join(set(modified_nbs))}"
-    sp.call(cmd('set-env', 'MODIFIED_NOTEBOOKS'), shell=True)
-    sp.call(cmd('set-output ', 'MODIFIED_NOTEBOOKS'), shell=True)
+    run = lambda cmd, name: sp.run(f"echo ::{cmd} name={name}::{' '.join(set(modified_nbs))}", shell=True, check=True)
+    run('set-env', 'MODIFIED_NOTEBOOKS')
+    run('set-output ', 'modified_notebooks')
 
 
 if __name__ == '__main__':
