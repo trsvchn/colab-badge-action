@@ -8,22 +8,22 @@ import subprocess as sp
 SRC = '"https://colab.research.google.com/assets/colab-badge.svg"'
 ALT = '"Open In Colab"'
 
-GITHUB_EVENT_NAME = os.environ['GITHUB_EVENT_NAME']
+# GITHUB_EVENT_NAME = os.environ['GITHUB_EVENT_NAME']
 
 # Set repository
 CURRENT_REPOSITORY = os.environ['GITHUB_REPOSITORY']
-TARGET_REPOSITORY = os.environ['INPUT_TARGET_REPOSITORY'] or CURRENT_REPOSITORY  # TODO: How about PRs from forks?
-PULL_REQUEST_REPOSITORY = os.environ['INPUT_PULL_REQUEST_REPOSITORY'] or TARGET_REPOSITORY 
-REPOSITORY = PULL_REQUEST_REPOSITORY if GITHUB_EVENT_NAME == 'pull_request' else TARGET_REPOSITORY
+TARGET_REPOSITORY = os.environ['INPUT_TARGET_REPOSITORY'] or CURRENT_REPOSITORY
+# PULL_REQUEST_REPOSITORY = os.environ['INPUT_PULL_REQUEST_REPOSITORY'] or TARGET_REPOSITORY
+# REPOSITORY = PULL_REQUEST_REPOSITORY if GITHUB_EVENT_NAME == 'pull_request' else TARGET_REPOSITORY
 
 # Set branches
 GITHUB_REF = os.environ['GITHUB_REF']
 GITHUB_HEAD_REF = os.environ['GITHUB_HEAD_REF']
-GITHUB_BASE_REF = os.environ['GITHUB_BASE_REF']
+# GITHUB_BASE_REF = os.environ['GITHUB_BASE_REF']
 CURRENT_BRANCH = GITHUB_HEAD_REF or GITHUB_REF.rsplit('/', 1)[-1]
 TARGET_BRANCH = os.environ['INPUT_TARGET_BRANCH'] or CURRENT_BRANCH
-PULL_REQUEST_BRANCH = os.environ['INPUT_PULL_REQUEST_BRANCH'] or GITHUB_BASE_REF
-BRANCH = PULL_REQUEST_BRANCH if GITHUB_EVENT_NAME == 'pull_request' else TARGET_BRANCH
+# PULL_REQUEST_BRANCH = os.environ['INPUT_PULL_REQUEST_BRANCH'] or GITHUB_BASE_REF
+# BRANCH = PULL_REQUEST_BRANCH if GITHUB_EVENT_NAME == 'pull_request' else TARGET_BRANCH
 
 GITHUB_ACTOR = os.environ['GITHUB_ACTOR']
 GITHUB_REPOSITORY_OWNER = os.environ['GITHUB_REPOSITORY_OWNER']
@@ -35,9 +35,6 @@ UPDATE = os.environ['INPUT_UPDATE']
 def main():
     """Sic Mundus Creatus Est.
     """
-    if (GITHUB_EVENT_NAME == 'pull_request') and (GITHUB_ACTOR != GITHUB_REPOSITORY_OWNER):
-        return
-
     if CHECK:
         if CHECK == 'all':
             nbs = get_all_nbs()
@@ -54,7 +51,7 @@ def main():
             # Commit changes
             commit_changes(modified_nbs)
             # Push
-            push_changes()
+            # push_changes()
         else:
             print('Nothing to add. Nothing to update!')
     else:
@@ -86,7 +83,7 @@ def check_nb(notebooks: list) -> list:
         # Import notebook data
         nb_data = read_nb(nb)
         # Add badge to right places, add right meta to the corresponding cell
-        check_cells(nb_data, REPOSITORY, BRANCH, nb, updated_nbs)
+        check_cells(nb_data, TARGET_REPOSITORY, TARGET_BRANCH, nb, updated_nbs)
 
     return updated_nbs
 
@@ -212,24 +209,24 @@ def commit_changes(nbs: list):
     sp.call(set_user, shell=True)
 
     nbs = ' '.join(set(nbs))
-    git_checkout = f'git checkout {TARGET_BRANCH}'
+    # git_checkout = f'git checkout {TARGET_BRANCH}'
     git_add = f'git add {nbs}'
     git_commit = 'git commit -m "Add/Update Colab Badges"'
 
     print(f'Committing {nbs}...')
 
-    sp.call(git_checkout, shell=True)
+    # sp.call(git_checkout, shell=True)
     sp.call(git_add, shell=True)
     sp.call(git_commit, shell=True)
 
 
-def push_changes():
-    """Pushes commit.
-    """
-    set_url = f'git remote set-url origin https://x-access-token:{GITHUB_TOKEN}@github.com/{TARGET_REPOSITORY}'
-    git_push = f'git push origin {TARGET_BRANCH}'
-    sp.call(set_url, shell=True)
-    sp.call(git_push, shell=True)
+# def push_changes():
+#     """Pushes commit.
+#     """
+#     set_url = f'git remote set-url origin https://x-access-token:{GITHUB_TOKEN}@github.com/{TARGET_REPOSITORY}'
+#     git_push = f'git push origin {TARGET_BRANCH}'
+#     sp.call(set_url, shell=True)
+#     sp.call(git_push, shell=True)
 
 
 if __name__ == '__main__':
