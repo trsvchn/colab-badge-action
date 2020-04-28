@@ -43,6 +43,7 @@ def main():
             set_output()
             print('Nothing to add. Nothing to update!')
     else:
+        set_output()
         print('There is no modified notebooks in a current commit.')
 
 
