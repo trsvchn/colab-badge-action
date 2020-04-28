@@ -20,6 +20,10 @@ inputs:
     default: ''
     required: false
 
+outputs:
+  modified_notebooks:
+    description: 'String of modified notebooks file names, separated by whitespace, e.g. "nb1.ipynb nb2.ipynb nb3.ipynb"'
+
 runs:
   using: 'docker'
   image: 'Dockerfile'
