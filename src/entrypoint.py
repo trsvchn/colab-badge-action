@@ -4,30 +4,20 @@ import json
 from glob import iglob
 import subprocess as sp
 
-
+# Badge setup
 SRC = '"https://colab.research.google.com/assets/colab-badge.svg"'
 ALT = '"Open In Colab"'
-
-# GITHUB_EVENT_NAME = os.environ['GITHUB_EVENT_NAME']
 
 # Set repository
 CURRENT_REPOSITORY = os.environ['GITHUB_REPOSITORY']
 TARGET_REPOSITORY = os.environ['INPUT_TARGET_REPOSITORY'] or CURRENT_REPOSITORY
-# PULL_REQUEST_REPOSITORY = os.environ['INPUT_PULL_REQUEST_REPOSITORY'] or TARGET_REPOSITORY
-# REPOSITORY = PULL_REQUEST_REPOSITORY if GITHUB_EVENT_NAME == 'pull_request' else TARGET_REPOSITORY
 
 # Set branches
 GITHUB_REF = os.environ['GITHUB_REF']
 GITHUB_HEAD_REF = os.environ['GITHUB_HEAD_REF']
-# GITHUB_BASE_REF = os.environ['GITHUB_BASE_REF']
 CURRENT_BRANCH = GITHUB_HEAD_REF or GITHUB_REF.rsplit('/', 1)[-1]
 TARGET_BRANCH = os.environ['INPUT_TARGET_BRANCH'] or CURRENT_BRANCH
-# PULL_REQUEST_BRANCH = os.environ['INPUT_PULL_REQUEST_BRANCH'] or GITHUB_BASE_REF
-# BRANCH = PULL_REQUEST_BRANCH if GITHUB_EVENT_NAME == 'pull_request' else TARGET_BRANCH
 
-GITHUB_ACTOR = os.environ['GITHUB_ACTOR']
-GITHUB_REPOSITORY_OWNER = os.environ['GITHUB_REPOSITORY_OWNER']
-GITHUB_TOKEN = os.environ['INPUT_GITHUB_TOKEN']
 CHECK = os.environ['INPUT_CHECK']  # 'all' | 'latest'
 UPDATE = os.environ['INPUT_UPDATE']
 
@@ -48,11 +38,9 @@ def main():
     if nbs:
         modified_nbs = check_nb(nbs)
         if modified_nbs:
-            # Commit changes
-            commit_changes(modified_nbs)
-            # Push
-            # push_changes()
+            set_output(modified_nbs)
         else:
+            set_output()
             print('Nothing to add. Nothing to update!')
     else:
         print('There is no modified notebooks in a current commit.')
@@ -199,34 +187,13 @@ def write_nb(data: dict, file_path: str) -> None:
         json.dump(data, f, indent=2)
 
 
-def commit_changes(nbs: list):
-    """Commits changes.
+def set_output(modified_nbs=None) -> None:
+    """Sets the action output as a environmental variable.
     """
-    set_email = 'git config --local user.email "colab-badge-action@master"'
-    set_user = 'git config --local user.name "Colab Badge Action"'
-
-    sp.call(set_email, shell=True)
-    sp.call(set_user, shell=True)
-
-    nbs = ' '.join(set(nbs))
-    # git_checkout = f'git checkout {TARGET_BRANCH}'
-    git_add = f'git add {nbs}'
-    git_commit = 'git commit -m "Add/Update Colab Badges"'
-
-    print(f'Committing {nbs}...')
-
-    # sp.call(git_checkout, shell=True)
-    sp.call(git_add, shell=True)
-    sp.call(git_commit, shell=True)
-
-
-# def push_changes():
-#     """Pushes commit.
-#     """
-#     set_url = f'git remote set-url origin https://x-access-token:{GITHUB_TOKEN}@github.com/{TARGET_REPOSITORY}'
-#     git_push = f'git push origin {TARGET_BRANCH}'
-#     sp.call(set_url, shell=True)
-#     sp.call(git_push, shell=True)
+    modified_nbs = modified_nbs or []
+    cmd = lambda command, name: f"echo ::{command} name={name}::{' '.join(set(modified_nbs))}"
+    sp.call(cmd('set-env', 'MODIFIED_NOTEBOOKS'), shell=True)
+    sp.call(cmd('set-output ', 'MODIFIED_NOTEBOOKS'), shell=True)
 
 
 if __name__ == '__main__':
