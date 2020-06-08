@@ -1,8 +1,6 @@
 # Colab Badge GitHub Action
 
-> Adds "Open in Colab" badges to Jupyter Notebooks, automatically updates
-badges on file renaming, branching or forking.
-
+Adds "Open in Colab" badges to Jupyter Notebooks. Updates badges for renamed or moved notebooks.
 
 ## Usage
 
@@ -36,20 +34,22 @@ jobs:
     name: Example Job
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/master
       - name: Colab Badge Action 
-        uses: trsvchn/colab-badge-action@v1
+        uses: trsvchn/colab-badge-action@v2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           check: 'all'
           update: true
+          target_branch: master
+          target_repository: user/user-repo
 ```
 
 ### Inputs
 
 - `github_token` - token for the GitHub repository, can be referenced by using `${{ secrets.GITHUB_TOKEN }}`
-
 - `check`: `'all'` - to check every notebook for the `{{ badge }}` tag and "render" into to a Colab badge. Default: `'all'`
 To add/update badges only for notebooks in a current commit set to `'latest'`
-
 - `update`: `true` - to update a badge if a piece of information relevant to it has changed. Default: `true`. With`false` inserts badges with no further updates (ignores changes)
+- `target_branch`: '' - branch that the badge will target. Default: current branch.
+- `target_repository`: '' - repo that the badge will target. Default: current repository.
