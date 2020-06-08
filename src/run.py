@@ -192,6 +192,7 @@ def set_output(modified_nbs=None) -> None:
     """Sets the modified notebooks as a environmental variable (set-env) and step output (set-output).
     """
     modified_nbs = modified_nbs or []
+    # os.environ['MODIFIED_NOTEBOOKS'] = ' '.join(set(modified_nbs))
     run = lambda cmd, name: sp.run(f"echo ::{cmd} name={name}::{' '.join(set(modified_nbs))}", shell=True, check=True)
     run('set-env', 'MODIFIED_NOTEBOOKS')
     run('set-output ', 'modified_notebooks')
