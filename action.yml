@@ -3,6 +3,9 @@ author: trsvchn
 description: 'Inserts/Updates Colab Badges within Jupyter Notebooks'
 
 inputs:
+  github_token:
+    description: 'GITHUB_TOKEN secret'
+    required: true
   check:
     description: 'Which notebooks to check: all or just committed: all | latest'
     default: 'all'
