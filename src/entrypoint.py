@@ -125,7 +125,7 @@ def update_badge(cell: dict, repo_name: str, branch: str, nb_path: str):
     badge_pattern = re.compile(r"<!--<badge>-->(.*?)<!--</badge>-->")
     href_pattern = re.compile(r"href=[\"\'](.*?)[\"\']")
 
-    new_href = f'"https://colab.research.google.com/github/{repo_name}/blob/{branch}/{nb_path}"'
+    new_href = f"https://colab.research.google.com/github/{repo_name}/blob/{branch}/{nb_path}"
     text = cell["source"]
 
     for i, line in enumerate(text):
