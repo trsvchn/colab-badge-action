@@ -3,7 +3,7 @@ import glob
 import json
 import os
 import re
-import subprocess as sp
+import subprocess
 from typing import Iterable, List, Optional
 
 __all__ = [
@@ -66,7 +66,7 @@ def get_all_mds() -> iter:
 def get_modified_nbs() -> List[str]:
     """Get list of all the modified notebooks in a current commit."""
     cmd = "git diff-tree --no-commit-id --name-only -r HEAD"
-    committed_files = sp.getoutput(cmd).split("\n")
+    committed_files = subprocess.getoutput(cmd).split("\n")
     nbs = [nb for nb in committed_files if (nb.endswith(".ipynb") and os.path.isfile(nb))]
     return nbs
 
@@ -74,7 +74,7 @@ def get_modified_nbs() -> List[str]:
 def get_modified_mds() -> List[str]:
     """Get list of all the modified markdown files in a current commit."""
     cmd = "git diff-tree --no-commit-id --name-only -r HEAD"
-    committed_files = sp.getoutput(cmd).split("\n")
+    committed_files = subprocess.getoutput(cmd).split("\n")
     mds = [md for md in committed_files if (md.endswith(".md") and os.path.isfile(md))]
     return mds
 

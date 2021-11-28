@@ -1,5 +1,7 @@
 # Colab Badge GitHub Action
 
+[![Unit Tests](https://github.com/trsvchn/colab-badge-action/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/trsvchn/colab-badge-action/actions/workflows/unit-tests.yml)
+
 Adds "Open in Colab" badges to Jupyter Notebooks. Updates badges for renamed or moved notebooks.
 
 ## Usage
@@ -22,7 +24,7 @@ You can use it inside a text as well:
 
 ### Example Workflow
 
-A workflow file for adding/updating badges for notebooks in a repo: 
+A workflow file for adding/updating badges for notebooks in a repo:
 
 ```yaml
 name: Example Workflow
@@ -41,21 +43,20 @@ jobs:
         id: badges
         uses: trsvchn/colab-badge-action@v3
         with:
-          check: 'all'
-          update: true
+          check: "all"
+          track: true
           target_branch: main
           target_repository: user/user-repo
 
       - name: Use your favorite commit&push action here
         uses: action/commit@push
-        with:
-          ...
+        with: ...
 ```
 
 ### Inputs
 
 - `check`: `'all'` - to check every notebook for the `{{ badge }}` tag and "render" into to a Colab badge. Default: `'all'`
-To add/update badges only for notebooks in a current commit set to `'latest'`
-- `update`: `true` - to update a badge if a piece of information relevant to it has changed. Default: `true`. With`false` inserts badges with no further updates (ignores changes)
+  To add/update badges only for notebooks in a current commit set to `'latest'`
+- `track`: `true` - to update a badge if a piece of information relevant to it has changed. Default: `true`. With`false` inserts badges with no further updates (ignores changes). Works only for notebooks.
 - `target_branch`: '' - branch that the badge will target. Default: current branch.
 - `target_repository`: '' - repo that the badge will target. Default: current repository.
