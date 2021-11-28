@@ -1,10 +1,25 @@
+import functools
+import glob
 import json
 import os
 import re
 import subprocess as sp
-from functools import lru_cache
-from glob import iglob
-from typing import List, Optional
+from typing import Iterable, List, Optional
+
+__all__ = [
+    "ALT",
+    "SRC",
+    "read_nb",
+    "read_md",
+    "write_md",
+    "write_nb",
+    "get_all_mds",
+    "get_all_nbs",
+    "get_modified_nbs",
+    "get_modified_mds",
+    "check_cells",
+    "check_md",
+]
 
 ALT = '"Open In Colab"'
 SRC = '"https://colab.research.google.com/assets/colab-badge.svg"'
@@ -17,19 +32,38 @@ def read_nb(file_path: str) -> dict:
     return data
 
 
+def read_md(file_path: str) -> Iterable[str]:
+    """Reads markdowns file."""
+    with open(file_path, "r") as f:
+        data = f.readlines()
+    return data
+
+
 def write_nb(data: dict, file_path: str) -> None:
     """Saves modified jupyter notebook."""
     with open(file_path, "w") as f:
         json.dump(data, f, indent=2)
 
 
+def write_md(data: List[str], file_path: str) -> None:
+    """Saves modified jupyter notebook."""
+    with open(file_path, "w") as f:
+        f.writelines(data)
+
+
 def get_all_nbs() -> iter:
-    """Get list of all the notebooks a repo."""
-    nbs = iglob("**/*.ipynb", recursive=True)
+    """Get list of all the notebooks."""
+    nbs = glob.glob("**/*.ipynb", recursive=True)
     return nbs
 
 
-def get_modified_nbs() -> list:
+def get_all_mds() -> iter:
+    """Get list of all markdown files."""
+    mds = glob.glob("**/*.md", recursive=True)
+    return mds
+
+
+def get_modified_nbs() -> List[str]:
     """Get list of all the modified notebooks in a current commit."""
     cmd = "git diff-tree --no-commit-id --name-only -r HEAD"
     committed_files = sp.getoutput(cmd).split("\n")
@@ -37,29 +71,37 @@ def get_modified_nbs() -> list:
     return nbs
 
 
+def get_modified_mds() -> List[str]:
+    """Get list of all the modified markdown files in a current commit."""
+    cmd = "git diff-tree --no-commit-id --name-only -r HEAD"
+    committed_files = sp.getoutput(cmd).split("\n")
+    mds = [md for md in committed_files if (md.endswith(".md") and os.path.isfile(md))]
+    return mds
+
+
 def is_md_cell(cell: dict) -> bool:
     return cell["cell_type"] == "markdown"
 
 
-@lru_cache()
+@functools.lru_cache()
 def badge_pattern():
     """Badge tag."""
     return re.compile(r"(?P<badge>\{{2}\ *badge\ *(?P<path>.*?)\ *\}{2})")
 
 
-@lru_cache()
+@functools.lru_cache()
 def track_badge_pattern():
     """Badge that is tracked."""
     return re.compile(r"<!--<badge>-->(.*?)<!--</badge>-->")
 
 
-@lru_cache()
+@functools.lru_cache()
 def href_pattern():
     """Href for tracked badge case (using html)."""
     return re.compile(r"href=[\"\'](.*?)[\"\']")
 
 
-@lru_cache()
+@functools.lru_cache()
 def url_pattern():
     """Compile a URL pattern.
 
@@ -98,34 +140,37 @@ def add_badge(
     src: str,
     alt: str,
     file_type: str,
-    track: bool = True,
+    track: bool,
 ) -> Optional[str]:
     """Inserts "Open in Colab" badge."""
     updated = False
     badge_matches = badge_pattern().finditer(line)
 
-    for badge_match in badge_matches:
-        if not badge_match["path"] and file_type == "notebook":
-            if track:
-                badge = prepare_badge_code_html(repo_name, branch, nb_path, src, alt)
-            else:
-                path = f"https://colab.research.google.com/github/{repo_name}/blob/{branch}/{nb_path}"
+    if badge_matches:
+        for badge_match in badge_matches:
+            if not badge_match["path"] and file_type == "notebook":
+                if track:
+                    badge = prepare_badge_code_html(repo_name, branch, nb_path, src, alt)
+                else:
+                    path = f"https://colab.research.google.com/github/{repo_name}/blob/{branch}/{nb_path}"
+                    badge = prepare_badge_code_md(path, src.strip('"'), alt.strip('"'))
+                print(f"{nb_path}: Inserting badge...")
+                line = line.replace(badge_match["badge"], badge, 1)
+                updated = True
+            elif badge_match["path"]:
+                path = badge_match["path"]
+
+                if url_pattern().match(path) is None:
+                    path = f"https://colab.research.google.com/github/{repo_name}/blob/{branch}/{path}"
+                else:
+                    path = path.replace("/github.com/", "/colab.research.google.com/github/", 1)
+
                 badge = prepare_badge_code_md(path, src.strip('"'), alt.strip('"'))
-            print(f"{nb_path}: Inserting badge...")
-            line = line.replace(badge_match["badge"], badge, 1)
-            updated = True
-        else:
-            path = badge_match["path"]
-
-            if url_pattern().match(path) is None:
-                path = f"https://colab.research.google.com/github/{repo_name}/blob/{branch}/{path}"
+                print(f"{nb_path}: Inserting badge...")
+                line = line.replace(badge_match["badge"], badge, 1)
+                updated = True
             else:
-                path = path.replace("/github.com/", "/colab.research.google.com/github/", 1)
-
-            badge = prepare_badge_code_md(path, src.strip('"'), alt.strip('"'))
-            print(f"{nb_path}: Inserting badge...")
-            line = line.replace(badge_match["badge"], badge, 1)
-            updated = True
+                continue
 
     if updated:
         return line
@@ -133,7 +178,7 @@ def add_badge(
 
 def update_badge(line: str, repo_name: str, branch: str, nb_path: str) -> Optional[str]:
     """Updates added badge code."""
-    new_line = None
+    updated = False
     new_href = f"https://colab.research.google.com/github/{repo_name}/blob/{branch}/{nb_path}"
 
     badges = track_badge_pattern().findall(line)
@@ -147,9 +192,40 @@ def update_badge(line: str, repo_name: str, branch: str, nb_path: str) -> Option
 
             if (curr_repo != repo_name) or (curr_branch != branch) or (curr_nb_path != nb_path):
                 print(f"{nb_path}: Updating badge info...")
-                new_line = line.replace(href, new_href)
+                line = line.replace(href, new_href)
+                updated = True
 
-    return new_line
+    if updated:
+        return line
+
+
+def check_md_line(
+    line: str,
+    repo_name: str,
+    branch: str,
+    nb_path: str,
+    src: str,
+    alt: str,
+    file_type: str,
+    track: bool,
+) -> Optional[str]:
+    updated = False
+    # If a there is a badge - check the repo and the branch
+    if track:
+        # Update repo, branch, file path
+        new_line = update_badge(line, repo_name, branch, nb_path)
+        if new_line:
+            line = new_line
+            updated = True
+
+    # Add badge code
+    new_line = add_badge(line, repo_name, branch, nb_path, src, alt, file_type, track)
+    if new_line:
+        line = new_line
+        updated = True
+
+    if updated:
+        return line
 
 
 def check_cell(
@@ -167,21 +243,35 @@ def check_cell(
     text = cell["source"]
     # Iterate over source lines
     for i, line in enumerate(text):
-        # If a cell already has a badge - check the repo and branch
-        if track:
-            # Update repo, branch, file path
-            new_line = update_badge(line, repo_name, branch, nb_path)
-            if new_line:
-                text[i] = new_line
-                updated = True if new_line else updated
-        # Add badge code
-        new_line = add_badge(line, repo_name, branch, nb_path, src, alt, "notebook", track)
+        new_line = check_md_line(line, repo_name, branch, nb_path, src, alt, "notebook", track)
         if new_line:
             text[i] = new_line
-            updated = True if new_line else updated
+            updated = True
 
     if updated:
         return cell
+
+
+def check_md(
+    text: List[str],
+    repo_name: str,
+    branch: str,
+    nb_path: str,
+    src: str,
+    alt: str,
+    track: bool,
+) -> Optional[List[str]]:
+    """Updates/Adds badge for markdown file."""
+    updated = False
+    # Iterate over source lines
+    for i, line in enumerate(text):
+        new_line = check_md_line(line, repo_name, branch, nb_path, src, alt, "md", track)
+        if new_line:
+            text[i] = new_line
+            updated = True
+
+    if updated:
+        return text
 
 
 def check_cells(

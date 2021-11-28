@@ -1,6 +1,6 @@
 import os
 
-from lib import ALT, SRC, check_cells, get_all_nbs, get_modified_nbs, read_nb, write_nb
+from lib import *
 
 
 def main():
@@ -18,15 +18,17 @@ def main():
 
     if CHECK == "all":
         nbs = get_all_nbs()
+        mds = get_all_mds()
     elif CHECK == "latest":
         nbs = get_modified_nbs()
+        mds = get_modified_mds()
     else:
         raise ValueError(f"{CHECK} is a wrong value. Expecting all or latest")
 
     if nbs:
         for nb in nbs:
             # Import notebook data
-            print(f"{nb}: Reading...")
+            print(f"{nb}: Checking...")
             nb_data = read_nb(nb)
             # Add badge to the right places, add right meta to the corresponding cell
             cells = check_cells(
@@ -43,6 +45,28 @@ def main():
                 nb_data["cells"] = cells
                 print(f"{nb}: Saving modified...")
                 write_nb(nb_data, nb)
+            else:
+                print(f"{nb}: Nothing to add!")
+
+    if mds:
+        for md in mds:
+            print(f"{md}: Checking...")
+            md_data = read_md(md)
+            text = check_md(
+                text=[*md_data],
+                repo_name=TARGET_REPOSITORY,
+                branch=TARGET_BRANCH,
+                nb_path=md,
+                src=SRC,
+                alt=ALT,
+                track=TRACK,
+            )
+            if text:
+                md_data = text
+                print(f"{md}: Saving...")
+                write_md(md_data, md)
+            else:
+                print(f"{md}: Nothing to add!")
 
 
 if __name__ == "__main__":
