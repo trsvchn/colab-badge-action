@@ -51,13 +51,13 @@ def write_md(data: List[str], file_path: str) -> None:
         f.writelines(data)
 
 
-def get_all_nbs() -> iter:
+def get_all_nbs() -> List[str]:
     """Get list of all the notebooks."""
     nbs = glob.glob("**/*.ipynb", recursive=True)
     return nbs
 
 
-def get_all_mds() -> iter:
+def get_all_mds() -> List[str]:
     """Get list of all markdown files."""
     mds = glob.glob("**/*.md", recursive=True)
     return mds
@@ -172,8 +172,7 @@ def add_badge(
             else:
                 continue
 
-    if updated:
-        return line
+    return line if updated else None
 
 
 def update_badge(line: str, repo_name: str, branch: str, nb_path: str) -> Optional[str]:
@@ -195,8 +194,7 @@ def update_badge(line: str, repo_name: str, branch: str, nb_path: str) -> Option
                 line = line.replace(href, new_href)
                 updated = True
 
-    if updated:
-        return line
+    return line if updated else None
 
 
 def check_md_line(
@@ -224,8 +222,7 @@ def check_md_line(
         line = new_line
         updated = True
 
-    if updated:
-        return line
+    return line if updated else None
 
 
 def check_cell(
@@ -248,8 +245,7 @@ def check_cell(
             text[i] = new_line
             updated = True
 
-    if updated:
-        return cell
+    return cell if updated else None
 
 
 def check_md(
@@ -270,8 +266,7 @@ def check_md(
             text[i] = new_line
             updated = True
 
-    if updated:
-        return text
+    return text if updated else None
 
 
 def check_cells(
@@ -287,12 +282,12 @@ def check_cells(
     for cell_idx, cell in enumerate(cells):
         # Check only markdown cells
         if is_md_cell(cell):
-            cell = check_cell(cell, repo_name, branch, nb_path, src, alt, track)
-            if cell is not None:
+            new_cell = check_cell(cell, repo_name, branch, nb_path, src, alt, track)
+            if new_cell is not None:
+                cell = new_cell
                 cells[cell_idx] = cell
                 updated = True
         else:
             continue
 
-    if updated:
-        return cells
+    return cells if updated else None
