@@ -108,6 +108,15 @@ def test_write_nb(tmp_path, min_notebook):
             True,
             f"[![{alt}]({src})](https://colab.research.google.com/github/user2/repo2/blob/main/nb2.ipynb)",
         ),
+        (
+            "{{ badge /drive/1234567890 }}",
+            "user/repo",
+            "main",
+            "nb.ipynb",
+            "notebook",
+            True,
+            f"[![{alt}]({src})](https://colab.research.google.com/drive/1234567890)",
+        ),
     ],
 )
 def test_add_badge(test_line, repo_name, branch, nb_path, file_type, track, expected_line):

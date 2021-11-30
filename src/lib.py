@@ -4,6 +4,7 @@ import json
 import os
 import re
 import subprocess
+import urllib
 from typing import Iterable, List, Optional
 
 __all__ = [
@@ -148,23 +149,26 @@ def add_badge(
 
     if badge_matches:
         for badge_match in badge_matches:
-            if not badge_match["path"] and file_type == "notebook":
-                if track:
+            path = badge_match["path"]
+            if (not path) and (file_type == "notebook"):  # Self-Notebook (notebook points to itself).
+                if track:  # If track, add html code allowing tracking
                     badge = prepare_badge_code_html(repo_name, branch, nb_path, src, alt)
-                else:
+                else:  # Otherwise use markdown code. Note: you cannot mix html and md.
                     path = f"https://colab.research.google.com/github/{repo_name}/blob/{branch}/{nb_path}"
                     badge = prepare_badge_code_md(path, src.strip('"'), alt.strip('"'))
+                # TODO: replace it with logging
                 print(f"{nb_path}: Inserting badge...")
+                # Replace tag with the code
                 line = line.replace(badge_match["badge"], badge, 1)
                 updated = True
-            elif badge_match["path"]:
-                path = badge_match["path"]
-
-                if url_pattern().match(path) is None:
-                    path = f"https://colab.research.google.com/github/{repo_name}/blob/{branch}/{path}"
-                else:
+            elif path:  # Notebook from the repo_name, gdrive, or nb from another repo)
+                if url_pattern().match(path) is None:  # Notebook from gdrive or from repo_name
+                    if path.startswith("/drive/"):  # Notebook from the google drive
+                        path = urllib.parse.urljoin("https://colab.research.google.com", path)
+                    else:  # Notebook from this repo
+                        path = f"https://colab.research.google.com/github/{repo_name}/blob/{branch}/{path}"
+                else:  # Notebook from internet
                     path = path.replace("/github.com/", "/colab.research.google.com/github/", 1)
-
                 badge = prepare_badge_code_md(path, src.strip('"'), alt.strip('"'))
                 print(f"{nb_path}: Inserting badge...")
                 line = line.replace(badge_match["badge"], badge, 1)
