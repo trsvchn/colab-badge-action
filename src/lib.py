@@ -4,6 +4,7 @@ import json
 import os
 import pathlib
 import re
+import string
 import subprocess
 import urllib
 from typing import Iterable, List, Optional
@@ -25,6 +26,12 @@ __all__ = [
 
 ALT = '"Open In Colab"'
 SRC = '"https://colab.research.google.com/assets/colab-badge.svg"'
+HREF_TMPL = string.Template('"https://colab.research.google.com/github/$repo_name/blob/$branch/$nb_path"')
+URL_TMPL = string.Template("https://colab.research.google.com/github/$repo_name/blob/$branch/$nb_path")
+HTML_BADGE_TMPL = string.Template(
+    '<!--<badge>--><a href=$href target="_parent"><img src=$src alt=$alt/></a><!--</badge>-->'
+)
+MD_BADGE_TMPL = string.Template("[![$alt]($src)]($url)")
 
 
 def read_nb(file_path: str) -> dict:
@@ -140,14 +147,14 @@ def url_pattern():
 
 def prepare_badge_code_html(repo_name: str, branch: str, nb_path: str, src: str, alt: str) -> str:
     """Prepares right html code for the badge."""
-    href = f'"https://colab.research.google.com/github/{repo_name}/blob/{branch}/{nb_path}"'
-    code = f'<!--<badge>--><a href={href} target="_parent"><img src={src} alt={alt}/></a><!--</badge>-->'
+    href = HREF_TMPL.safe_substitute(repo_name=repo_name, branch=branch, nb_path=nb_path)
+    code = HTML_BADGE_TMPL.safe_substitute(href=href, src=src, alt=alt)
     return code
 
 
 def prepare_badge_code_md(url: str, src: str, alt: str) -> str:
     """Prepares right html code for the badge."""
-    code = f"[![{alt}]({src})]({url})"
+    code = MD_BADGE_TMPL.safe_substitute(url=url, src=src, alt=alt)
     return code
 
 
@@ -174,7 +181,7 @@ def add_badge(
                 if track:  # If track, add html code allowing tracking
                     badge = prepare_badge_code_html(repo_name, branch, nb_path, src, alt)
                 else:  # Otherwise use markdown code. Note: you cannot mix html and md.
-                    path = f"https://colab.research.google.com/github/{repo_name}/blob/{branch}/{nb_path}"
+                    path = URL_TMPL.safe_substitute(repo_name=repo_name, branch=branch, nb_path=nb_path)
                     badge = prepare_badge_code_md(path, src.strip('"'), alt.strip('"'))
                 # TODO: replace it with logging
                 print(f"{nb_path}: Inserting badge...")
@@ -187,7 +194,7 @@ def add_badge(
                         path = urllib.parse.urljoin("https://colab.research.google.com", path)
                     else:  # Notebook from this repo
                         path = append_ext_to_url(path)
-                        path = f"https://colab.research.google.com/github/{repo_name}/blob/{branch}/{path}"
+                        path = URL_TMPL.safe_substitute(repo_name=repo_name, branch=branch, nb_path=path)
                 else:  # Notebook from internet
                     path = append_ext_to_url(path)
                     path = path.replace("/github.com/", "/colab.research.google.com/github/", 1)
@@ -205,7 +212,7 @@ def update_badge(line: str, repo_name: str, branch: str, nb_path: str) -> Option
     """Updates added badge code."""
     updated = False
     nb_path = append_ext_to_str(nb_path)
-    new_href = f"https://colab.research.google.com/github/{repo_name}/blob/{branch}/{nb_path}"
+    new_href = URL_TMPL.safe_substitute(repo_name=repo_name, branch=branch, nb_path=nb_path)
 
     badges = track_badge_pattern().findall(line)
 
