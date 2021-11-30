@@ -2,6 +2,7 @@ import functools
 import glob
 import json
 import os
+import pathlib
 import re
 import subprocess
 import urllib
@@ -84,6 +85,23 @@ def is_md_cell(cell: dict) -> bool:
     return cell["cell_type"] == "markdown"
 
 
+def append_ext_to_str(path: str) -> str:
+    """Adds jupyter notebook extension if necessary."""
+    p = pathlib.Path(path)
+    if not p.suffix:
+        path = str(p.with_suffix(".ipynb"))
+    return path
+
+
+def append_ext_to_url(url: str) -> str:
+    """Adds jupyter notebook to url extension if necessary."""
+    path = urllib.parse.urlsplit(url).path
+    new_path = append_ext_to_str(path)
+    if new_path != path:
+        url = urllib.parse.urljoin(url, pathlib.Path(new_path).name)
+    return url
+
+
 @functools.lru_cache()
 def badge_pattern():
     """Badge tag."""
@@ -151,6 +169,8 @@ def add_badge(
         for badge_match in badge_matches:
             path = badge_match["path"]
             if (not path) and (file_type == "notebook"):  # Self-Notebook (notebook points to itself).
+                # Path is None, use nb_path
+                nb_path = append_ext_to_str(nb_path)
                 if track:  # If track, add html code allowing tracking
                     badge = prepare_badge_code_html(repo_name, branch, nb_path, src, alt)
                 else:  # Otherwise use markdown code. Note: you cannot mix html and md.
@@ -166,8 +186,10 @@ def add_badge(
                     if path.startswith("/drive/"):  # Notebook from the google drive
                         path = urllib.parse.urljoin("https://colab.research.google.com", path)
                     else:  # Notebook from this repo
+                        path = append_ext_to_url(path)
                         path = f"https://colab.research.google.com/github/{repo_name}/blob/{branch}/{path}"
                 else:  # Notebook from internet
+                    path = append_ext_to_url(path)
                     path = path.replace("/github.com/", "/colab.research.google.com/github/", 1)
                 badge = prepare_badge_code_md(path, src.strip('"'), alt.strip('"'))
                 print(f"{nb_path}: Inserting badge...")
@@ -182,6 +204,7 @@ def add_badge(
 def update_badge(line: str, repo_name: str, branch: str, nb_path: str) -> Optional[str]:
     """Updates added badge code."""
     updated = False
+    nb_path = append_ext_to_str(nb_path)
     new_href = f"https://colab.research.google.com/github/{repo_name}/blob/{branch}/{nb_path}"
 
     badges = track_badge_pattern().findall(line)
