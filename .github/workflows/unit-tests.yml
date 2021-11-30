@@ -2,8 +2,8 @@ name: Unit Tests
 on: [push, pull_request]
 
 jobs:
-  build:
-    name: Run Unit Tests
+  ci:
+    name: Unit Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -15,9 +15,12 @@ jobs:
           python-version: 3.8
 
       - name: Install Dependencies
-        run: pip install -U pip && pip install pytest mypy
+        run: pip install -U pip && pip install flake8 mypy pytest
 
-      - name: Run Mypy
+      - name: Linting with Flake8
+        run: flake8 --max-line-length 120 --exclude "test_*" src/
+
+      - name: Type Checking With Mypy
         run: mypy src/
 
       - name: Run Unit Tests

@@ -1,6 +1,19 @@
 import os
 
-from lib import *
+from lib import (
+    ALT,
+    SRC,
+    check_cells,
+    check_md,
+    get_all_mds,
+    get_all_nbs,
+    get_modified_mds,
+    get_modified_nbs,
+    read_md,
+    read_nb,
+    write_md,
+    write_nb,
+)
 
 
 def main():
