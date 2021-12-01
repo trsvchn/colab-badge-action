@@ -25,8 +25,9 @@ def main():
     GITHUB_HEAD_REF = os.environ["GITHUB_HEAD_REF"]
     CURRENT_BRANCH = GITHUB_HEAD_REF or GITHUB_REF.rsplit("/", 1)[-1]
     TARGET_BRANCH = os.environ["INPUT_TARGET_BRANCH"] or CURRENT_BRANCH
-    # Check and/or update
+    # Check all or latest
     CHECK = os.environ["INPUT_CHECK"]  # 'all' | 'latest'
+    # Track badges info (works only for notebooks with "self-badges")
     TRACK = {"true": True, "false": False}.get(os.environ["INPUT_TRACK"], True)  # True | False
 
     if CHECK == "all":
@@ -46,9 +47,9 @@ def main():
             # Add badge to the right places, add right meta to the corresponding cell
             cells = check_cells(
                 cells=nb_data["cells"],
-                repo_name=TARGET_REPOSITORY,
+                repo=TARGET_REPOSITORY,
                 branch=TARGET_BRANCH,
-                nb_path=nb,
+                file_path=nb,
                 src=SRC,
                 alt=ALT,
                 track=TRACK,
@@ -67,9 +68,9 @@ def main():
             md_data = read_md(md)
             text = check_md(
                 text=[*md_data],
-                repo_name=TARGET_REPOSITORY,
+                repo=TARGET_REPOSITORY,
                 branch=TARGET_BRANCH,
-                nb_path=md,
+                file_path=md,
                 src=SRC,
                 alt=ALT,
                 track=TRACK,

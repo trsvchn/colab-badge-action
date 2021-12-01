@@ -1,17 +1,44 @@
 import json
+import logging
+from string import Template
 
 import pytest
 
 from lib import ALT, SRC, add_badge, write_nb
 
-alt = ALT.strip('"')
-src = SRC.strip('"')
+html_badge_tmpl = Template(
+    "<!--<badge>-->"
+    '<a href="https://colab.research.google.com/github/usr/repo/blob/main/$nb" target="_parent">'
+    '<img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>'
+    "<!--</badge>-->"
+)
+badge_tmpl = Template(
+    "[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]"
+    "(https://colab.research.google.com/github/usr/repo/blob/main/$nb)"
+)
+drive_badge_tmpl = Template(
+    "[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]"
+    "(https://colab.research.google.com/drive/$nb)"
+)
 
 
 @pytest.fixture
 def min_notebook():
     """Minimal notebook."""
-    return {"metadata": {}, "cells": [], "nbformat": 4, "nbformat_minor": 2}
+    return {"metadata": {}, "cells": [], "nbformat": 4, "nbformat_minor": 5}
+
+
+@pytest.fixture
+def make_tmp_nb(tmp_path, min_notebook):
+    """tmp notebook."""
+
+    def _make_tmp_nb(fname):
+        nb = min_notebook
+        file_path = (tmp_path / fname).with_suffix(".ipynb")
+        write_nb(data=nb, file_path=file_path)
+        return file_path
+
+    return _make_tmp_nb
 
 
 def test_write_nb(tmp_path, min_notebook):
@@ -32,155 +59,117 @@ def test_write_nb(tmp_path, min_notebook):
 
 
 @pytest.mark.parametrize(
-    "test_line, repo_name, branch, nb_path, file_type, track, expected_line",
+    "line, file_path, expected",
     [
-        ("", "repo", "main", "nb.ipynb", "notebook", True, None),
-        ("badge", "repo", "main", "nb.ipynb", "notebook", True, None),
-        ("{badge}", "repo", "main", "nb.ipynb", "notebook", True, None),
-        (
-            "{{ badge }}",
-            "user/repo",
-            "main",
-            "nb.ipynb",
-            "notebook",
-            True,
-            f'<!--<badge>--><a href="https://colab.research.google.com/github/user/repo/blob/main/nb.ipynb"'
-            f' target="_parent"><img src={SRC} alt={ALT}/></a><!--</badge>-->',
-        ),
-        (
-            "{{ badge }}",
-            "user/repo",
-            "main",
-            "nb.ipynb",
-            "notebook",
-            False,
-            f"[![{alt}]({src})](https://colab.research.google.com/github/user/repo/blob/main/nb.ipynb)",
-        ),
+        ("", "nb.ipynb", None),
+        ("badge", "nb.ipynb", None),
+        ("{badge}", "nb.ipynb", None),
+        ("{ badge }", "nb.ipynb", None),
+        ("{{badge}}", "nb.ipynb", html_badge_tmpl.substitute(nb="nb.ipynb")),
+        ("{{  badge}}", "nb.ipynb", html_badge_tmpl.substitute(nb="nb.ipynb")),
+        ("{{badge  }}", "nb.ipynb", html_badge_tmpl.substitute(nb="nb.ipynb")),
+        ("{{ badge }}", "nb.ipynb", html_badge_tmpl.substitute(nb="nb.ipynb")),
         (
             "{{ badge }}{{ badge }}",
-            "user/repo",
-            "main",
             "nb.ipynb",
-            "notebook",
-            True,
-            f'<!--<badge>--><a href="https://colab.research.google.com/github/user/repo/blob/main/nb.ipynb"'
-            f' target="_parent"><img src={SRC} alt={ALT}/></a><!--</badge>-->'
-            f'<!--<badge>--><a href="https://colab.research.google.com/github/user/repo/blob/main/nb.ipynb"'
-            f' target="_parent"><img src={SRC} alt={ALT}/></a><!--</badge>-->',
+            html_badge_tmpl.substitute(nb="nb.ipynb") + html_badge_tmpl.substitute(nb="nb.ipynb"),
         ),
         (
             "{{ badge }} {{ badge }}",
-            "user/repo",
-            "main",
-            "nb.ipynb",
-            "notebook",
-            True,
-            f'<!--<badge>--><a href="https://colab.research.google.com/github/user/repo/blob/main/nb.ipynb"'
-            f' target="_parent"><img src={SRC} alt={ALT}/></a><!--</badge>--> '
-            f'<!--<badge>--><a href="https://colab.research.google.com/github/user/repo/blob/main/nb.ipynb"'
-            f' target="_parent"><img src={SRC} alt={ALT}/></a><!--</badge>-->',
-        ),
-        (
-            "{{ badge nbs/nb1.ipynb }}",
-            "user/repo",
-            "main",
-            "nb.ipynb",
-            "notebook",
-            True,
-            f"[![{alt}]({src})](https://colab.research.google.com/github/user/repo/blob/main/nbs/nb1.ipynb)",
-        ),
-        (
-            "{{ badge nbs/nb1.ipynb }} {{ badge nbs/nb2.ipynb }}",
-            "user/repo",
-            "main",
-            "nb.ipynb",
-            "notebook",
-            True,
-            f"[![{alt}]({src})](https://colab.research.google.com/github/user/repo/blob/main/nbs/nb1.ipynb) "
-            f"[![{alt}]({src})](https://colab.research.google.com/github/user/repo/blob/main/nbs/nb2.ipynb)",
-        ),
-        (
-            "{{ badge https://github.com/user2/repo2/blob/main/nb2.ipynb }}",
-            "user/repo",
-            "main",
-            "nb.ipynb",
-            "notebook",
-            True,
-            f"[![{alt}]({src})](https://colab.research.google.com/github/user2/repo2/blob/main/nb2.ipynb)",
-        ),
-        (
-            "{{ badge /drive/1234567890 }}",
-            "user/repo",
-            "main",
-            "nb.ipynb",
-            "notebook",
-            True,
-            f"[![{alt}]({src})](https://colab.research.google.com/drive/1234567890)",
-        ),
-        (
-            "{{ badge nbs/nb1 }}",
-            "user/repo",
-            "main",
-            "nb.ipynb",
-            "notebook",
-            True,
-            f"[![{alt}]({src})](https://colab.research.google.com/github/user/repo/blob/main/nbs/nb1.ipynb)",
-        ),
-        (
-            "{{ badge drive/n b s/nb1_ _. }}",
-            "user/repo",
-            "main",
-            "nb.ipynb",
-            "notebook",
-            True,
-            f"[![{alt}]({src})](https://colab.research.google.com/github/user/repo/blob/main/drive/n b s/nb1_ _..ipynb)",
-        ),
-        (
-            "{{ badge .drive/nbs/nb1.... }}",
-            "user/repo",
-            "main",
-            "nb.ipynb",
-            "notebook",
-            True,
-            f"[![{alt}]({src})](https://colab.research.google.com/github/user/repo/blob/main/.drive/nbs/nb1.....ipynb)",
-        ),
-        (
-            "{{ badge ...drive/nbs/nb1.... }}",
-            "user/repo",
-            "main",
-            "nb.ipynb",
-            "notebook",
-            True,
-            f"[![{alt}]({src})](https://colab.research.google.com/github/user/repo/blob/main/...drive/nbs/nb1.....ipynb)",
-        ),
-        (
-            "{{ badge https://github.com/user2/repo2/blob/main/nb2 }}",
-            "user/repo",
-            "main",
-            "nb.ipynb",
-            "notebook",
-            True,
-            f"[![{alt}]({src})](https://colab.research.google.com/github/user2/repo2/blob/main/nb2.ipynb)",
-        ),
-        (
-            "{{ badge https://github.com/user2/repo2/blob/main/.nb2. }}",
-            "user/repo",
-            "main",
-            "nb.ipynb",
-            "notebook",
-            True,
-            f"[![{alt}]({src})](https://colab.research.google.com/github/user2/repo2/blob/main/.nb2..ipynb)",
-        ),
-        (
-            "{{ badge https://github.com/user2/repo2/blob/main/.nbs/nb2.  }}",
-            "user/repo",
-            "main",
-            "nb.ipynb",
-            "notebook",
-            True,
-            f"[![{alt}]({src})](https://colab.research.google.com/github/user2/repo2/blob/main/.nbs/nb2..ipynb)",
+            "nb2.ipynb",
+            html_badge_tmpl.substitute(nb="nb2.ipynb") + " " + html_badge_tmpl.substitute(nb="nb2.ipynb"),
         ),
     ],
 )
-def test_add_badge(test_line, repo_name, branch, nb_path, file_type, track, expected_line):
-    assert add_badge(test_line, repo_name, branch, nb_path, SRC, ALT, file_type, track) == expected_line
+def test_nb_add_self_html_badge(line, file_path, expected):
+    track = True
+    badge = add_badge(line, None, "usr/repo", "main", file_path, SRC, ALT, "notebook", track)
+    assert badge == expected
+
+
+@pytest.mark.parametrize(
+    "line, file_path, expected",
+    [
+        ("", "nb.ipynb", None),
+        ("badge", "nb.ipynb", None),
+        ("{badge}", "nb.ipynb", None),
+        ("{{badge}}", "nb.ipynb", badge_tmpl.substitute(nb="nb.ipynb")),
+        ("{{ badge }}", "nb.ipynb", badge_tmpl.substitute(nb="nb.ipynb")),
+        (
+            "{{ badge }}{{ badge }}",
+            "nb.ipynb",
+            badge_tmpl.substitute(nb="nb.ipynb") + badge_tmpl.substitute(nb="nb.ipynb"),
+        ),
+        (
+            "{{ badge }} {{ badge }}",
+            "nb.ipynb",
+            badge_tmpl.substitute(nb="nb.ipynb") + " " + badge_tmpl.substitute(nb="nb.ipynb"),
+        ),
+    ],
+)
+def test_nb_add_self_md_badge(line, file_path, expected):
+    track = False
+    badge = add_badge(line, None, "usr/repo", "main", file_path, SRC, ALT, "notebook", track)
+    assert badge == expected
+
+
+@pytest.mark.parametrize(
+    "line, line_num, cols",
+    [
+        ("{{badge}}", 1, [1]),
+        ("{{ badge }}", 2, [1]),
+        ("{{ badge }}{{ badge }}", 3, [1, 12]),
+        ("{{ badge }} {{ badge }}", 4, [1, 13]),
+    ],
+)
+def test_md_add_self_badge(caplog, line, line_num, cols):
+    file_path = "file.md"
+    levelname = "ERROR"
+    message = (
+        "You can use {{ badge }} only for notebooks, it is NOT possible to generate a badge for a md file! "
+        "Use {{ badge <path> }} instead."
+    )
+    with caplog.at_level(logging.INFO):
+        badge = add_badge(line, line_num, "usr/repo", "main", file_path, SRC, ALT, "md", True)
+        assert badge is None
+        for record, col in zip(caplog.records, cols):
+            line_num = str(line_num)
+            col = str(col)
+            title = ":".join((file_path, line_num, col, " " + "Incorrect {{ badge }} usage."))
+
+            assert record.file == file_path
+            assert record.line == line_num
+            assert record.col == col
+            assert record.title == title
+            assert record.levelname == levelname
+            assert record.message == message
+
+
+def test_add_badge_incorrect_file_type():
+    with pytest.raises(ValueError):
+        add_badge("{{ badge }}", 1, "usr/repo", "main", "file.py", SRC, ALT, "py", True)
+
+
+@pytest.mark.parametrize(
+    "line, expected",
+    [
+        ("badge //drive/12345", None),
+        ("{badge //drive/12345}", None),
+        ("{{badge //drive/12345}}", drive_badge_tmpl.substitute(nb="12345")),
+        ("{{ badge //drive/12345}}", drive_badge_tmpl.substitute(nb="12345")),
+        ("{{badge //drive/12345 }}", drive_badge_tmpl.substitute(nb="12345")),
+        ("{{ badge //drive/12345}}", drive_badge_tmpl.substitute(nb="12345")),
+        (
+            "{{ badge //drive/12345 }}{{ badge //drive/67890 }}",
+            drive_badge_tmpl.substitute(nb="12345") + drive_badge_tmpl.substitute(nb="67890"),
+        ),
+        (
+            "{{ badge //drive/12345 }}abc{{ badge //drive/67890 }}",
+            drive_badge_tmpl.substitute(nb="12345") + "abc" + drive_badge_tmpl.substitute(nb="67890"),
+        ),
+    ],
+)
+def test_add_badge_drive(line, expected):
+    for file_path, file_type in zip(("nb.ipynb", "file.md"), ("notebook", "md")):
+        badge = add_badge(line, None, "usr/repo", "main", file_path, SRC, ALT, file_type, True)
+        assert badge == expected
