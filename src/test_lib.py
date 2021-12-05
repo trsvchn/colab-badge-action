@@ -14,6 +14,7 @@ from lib import (
     prepare_path_remote,
     prepare_path_remote_full,
     prepare_path_self,
+    read_nb,
     write_nb,
 )
 
@@ -47,21 +48,31 @@ def make_tmp_nb(tmp_path, min_notebook):
     return _make_tmp_nb
 
 
+def test_read_nb(tmp_path, min_notebook):
+    expected = min_notebook
+    fname = "min_nb.ipynb"
+    file_path = tmp_path / fname
+    with open(file_path, "w") as f:
+        json.dump(expected, f, indent=2)
+
+    nb = read_nb(file_path)
+
+    assert nb == expected
+
+
 def test_write_nb(tmp_path, min_notebook):
-    nb = min_notebook
+    expected = min_notebook
     fname = "min_nb.ipynb"
     file_path = tmp_path / fname
 
-    write_nb(nb, file_path)
+    write_nb(expected, file_path)
 
     assert (tmp_path / fname).is_file()
     assert len([*tmp_path.iterdir()]) == 1
 
     with file_path.open() as f:
-        nb2 = json.load(f)
-
-    for k in nb2:
-        assert nb2[k] == nb[k]
+        nb = json.load(f)
+    assert nb == expected
 
 
 @pytest.fixture
