@@ -15,13 +15,19 @@ jobs:
           python-version: 3.8
 
       - name: Install Dependencies
-        run: pip install -U pip && pip install flake8 mypy pytest
+        run: pip install -U pip && pip install flake8 mypy pytest pytest-cov
 
       - name: Linting with Flake8
         run: flake8 --max-line-length 120 --exclude "test_*" src/
 
-      - name: Type Checking With Mypy
+      - name: Type Checking with Mypy
         run: mypy src/
 
       - name: Run Unit Tests
-        run: pytest -vvv --color=yes src/
+        run: pytest -vvv --color=yes --cov=src --cov-append src/test_lib.py
+
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v2
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true

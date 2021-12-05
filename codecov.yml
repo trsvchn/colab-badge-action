@@ -1,0 +1,3 @@
+ignore:
+  - "src/action.py"
+  - "src/test_lib.py"
