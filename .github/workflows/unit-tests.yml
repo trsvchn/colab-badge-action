@@ -24,10 +24,11 @@ jobs:
         run: mypy src/
 
       - name: Run Unit Tests
-        run: pytest -vvv --color=yes --cov=src --cov-append src/test_lib.py
+        run: pytest -vvv --color=yes --cov=src --cov-append --cov-report=xml src/test_lib.py
 
       - name: Upload Coverage to Codecov
         uses: codecov/codecov-action@v2.1.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          file: coverage.xml
           fail_ci_if_error: true
