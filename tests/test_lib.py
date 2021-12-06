@@ -5,8 +5,8 @@ from argparse import Namespace
 
 import pytest
 
-import lib
-from lib import (
+from . import lib
+from .lib import (
     Badge,
     File,
     Patterns,
