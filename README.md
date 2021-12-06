@@ -56,9 +56,9 @@ jobs:
 
 ### Inputs
 
-| Input | Description |
-|:------|:------------|
-| `check` | Check every notebook/markdown: `"all"` or just modified files from a current commit: `"latest"`. Default: `"all"`. | 
-| `target_branch` | Branch that the badge will target. Default: current branch (`""`). |
-| `target_repository` | Repo that the badge will target. Default: current repository (`""`). |
-| `update` | Update a badge if a piece of information relevant to it has changedL `true`. With `false` inserts badges with no further updates (ignores changes). Works only for notebooks. Default: `true`. |
+| Input | Description | Default |
+|:------|:------------|:--------|
+| `check` | Check every notebook/markdown: `"all"` or just modified files from a current commit: `"latest"`. | `"all"` | 
+| `target_branch` | Branch that the badge will target. | `""` (current branch) |
+| `target_repository` | Repo that the badge will target. | `""` (current repository) |
+| `update` | Update a badge if a piece of information relevant to it has changedL `true`. With `false` inserts badges with no further updates (ignores changes). Works only for notebooks. | `true` |
