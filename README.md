@@ -32,8 +32,8 @@ name: Example Workflow
 on: [push]
 
 jobs:
-  build:
-    name: Example Job
+  badges:
+    name: Example Badge Job
     runs-on: ubuntu-latest
     steps:
       - name: Checkout first
@@ -45,9 +45,9 @@ jobs:
         uses: trsvchn/colab-badge-action@v3
         with:
           check: "all"
-          track: true
           target_branch: main
           target_repository: user/user-repo
+          update: true
 
       - name: Use your favorite commit&push action here
         uses: action/commit@push
@@ -56,8 +56,9 @@ jobs:
 
 ### Inputs
 
-- `check`: `'all'` - to check every notebook for the `{{ badge }}` tag and "render" into to a Colab badge. Default: `'all'`
-  To add/update badges only for notebooks in a current commit set to `'latest'`
-- `track`: `true` - to update a badge if a piece of information relevant to it has changed. Default: `true`. With`false` inserts badges with no further updates (ignores changes). Works only for notebooks.
-- `target_branch`: '' - branch that the badge will target. Default: current branch.
-- `target_repository`: '' - repo that the badge will target. Default: current repository.
+| Input | Description |
+|:------|:------------|
+| `check` | Check every notebook/markdown: `"all"` or just modified files from a current commit: `"latest"`. Default: `"all"`. | 
+| `target_branch` | Branch that the badge will target. Default: current branch (`""`). |
+| `target_repository` | Repo that the badge will target. Default: current repository (`""`). |
+| `update` | Update a badge if a piece of information relevant to it has changedL `true`. With `false` inserts badges with no further updates (ignores changes). Works only for notebooks. Default: `true`. |
