@@ -119,7 +119,7 @@ def test_prepare_path_self(caplog, line, file, badge, patterns, path, type, trac
             "You can use {{ badge }} only for notebooks, it is NOT possible to generate a badge for a md file! "
             "Use {{ badge <path> }} instead."
         )
-        with caplog.at_level(logging.INFO):
+        with caplog.at_level(logging.ERROR):
             nb_path = prepare_path_self(match, line, file, badge)
             assert nb_path is None
             for record in caplog.records:
@@ -158,7 +158,7 @@ def test_prepare_path_local(caplog, make_tmp_nb, line, file, badge, patterns, pa
     title = ":".join((file.path, line_num, col, " " + "File doesn't exist."))
     level = "ERROR"
     message = f"Specified file {nb_path} doesn't exist in current repository."
-    with caplog.at_level(logging.INFO):
+    with caplog.at_level(logging.ERROR):
         path = prepare_path_local(match, nb_path, line, file, badge)
         assert path is None
         for record in caplog.records:
@@ -180,34 +180,35 @@ def test_prepare_path_local(caplog, make_tmp_nb, line, file, badge, patterns, pa
     ],
 )
 def test_prepare_path_remote(caplog, monkeypatch, line, file, badge, patterns, path, nb_path, exp_nb_path):
+    _line, _file = line(data="{{ " + f"badge {nb_path}" + " }}"), file(path=path)
+    match = patterns.badge.match(_line.data)
+
     with monkeypatch.context() as m:
         m.setattr(lib, "check_nb_link", lambda nb: None)
-        _line, _file = line(data="{{ " + f"badge {nb_path}" + " }}"), file(path=path)
-        match = patterns.badge.match(_line.data)
-        expected = badge.url2.safe_substitute(file=exp_nb_path)
 
+        expected = badge.url2.safe_substitute(file=exp_nb_path)
         path = prepare_path_remote(match, nb_path, _line, _file, badge)
         assert path == expected
 
     with monkeypatch.context() as m:
         status, reason = (404, "Not Found")
         m.setattr(lib, "check_nb_link", lambda nb: (status, reason))
-        _line, _file = line(data="{{ " + f"badge {nb_path}" + " }}"), file(path=path, type=type)
-        match = patterns.badge.match(_line.data)
+
         line_num = str(_line.num)
         col = str(match.start() + 1)
         title = ":".join((_file.path, line_num, col, " " + f"{status} {reason}"))
         level = "ERROR"
         message = f"Specified file {nb_path} {reason}."
-        path = prepare_path_remote(match, nb_path, _line, _file, badge)
-        assert path is None
-        for record in caplog.records:
-            assert record.file == _file.path
-            assert record.line == line_num
-            assert record.col == col
-            assert record.title == title
-            assert record.levelname == level
-            assert record.message == message
+        with caplog.at_level(logging.ERROR):
+            path = prepare_path_remote(match, nb_path, _line, _file, badge)
+            assert path is None
+            for record in caplog.records:
+                assert record.file == _file.path
+                assert record.line == line_num
+                assert record.col == col
+                assert record.title == title
+                assert record.levelname == level
+                assert record.message == message
 
 
 @pytest.mark.parametrize(
@@ -228,6 +229,8 @@ def test_prepare_path_remote(caplog, monkeypatch, line, file, badge, patterns, p
     ],
 )
 def test_prepare_path_remote_full(caplog, monkeypatch, line, file, badge, patterns, path, nb_path, exp_nb_path):
+    _line, _file = line(data="{{ " + f"badge {nb_path}" + " }}"), file(path=path)
+    match = patterns.badge.match(_line.data)
     with monkeypatch.context() as m:
         m.setattr(
             lib,
@@ -236,20 +239,33 @@ def test_prepare_path_remote_full(caplog, monkeypatch, line, file, badge, patter
                 file=nb_path.lstrip("https://github.com")
             ),
         )
-        _line, _file = line(data="{{ " + f"badge {nb_path}" + " }}"), file(path=path, type=type)
-        match = patterns.badge.match(_line.data)
         expected = badge.url2.safe_substitute(file=exp_nb_path.lstrip("https://github.com"))
         path = prepare_path_remote_full(match, nb_path, _line, _file, badge)
         assert path == expected
 
     with monkeypatch.context() as m:
         m.setattr(lib, "prepare_path_remote", lambda match, nb_path, line, file, badge: None)
-        _line, _file = line(data="{{ " + f"badge {nb_path}" + " }}"), file(path=path, type=type)
-        match = patterns.badge.match(_line.data)
         path = prepare_path_remote_full(match, nb_path, _line, _file, badge)
         assert path is None
 
+    line_num = str(_line.num)
+    col = str(match.start() + 1)
+    title = ":".join((_file.path, line_num, col, " " + "Wrong hostname."))
+    level = "ERROR"
+    message = "Currently only notebooks hosted on GitHub are supported."
+    nb_path = nb_path.replace("github.com", "example.com")
+    with caplog.at_level(logging.ERROR):
+        path = prepare_path_remote_full(match, nb_path, _line, _file, badge)
+        assert path is None
+        for record in caplog.records:
+            assert record.file == _file.path
+            assert record.line == line_num
+            assert record.col == col
+            assert record.title == title
+            assert record.levelname == level
+            assert record.message == message
 
-@pytest.mark.parametrize("nb_path", ["0000", "1111", "2222", "3333"])
+
+@pytest.mark.parametrize("nb_path", ["//drive/0000", "//drive/1111", "//drive/2222", "//drive/3333"])
 def test_prepare_path_drive(badge, nb_path):
-    assert prepare_path_drive("//drive/" + nb_path, badge) == badge.drive.safe_substitute(file=nb_path)
+    assert prepare_path_drive(nb_path, badge) == badge.drive.safe_substitute(file=nb_path.lstrip("//drive/"))
