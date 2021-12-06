@@ -89,14 +89,14 @@ def write_md(data: List[str], path: str) -> None:
         f.writelines(data)
 
 
-def get_all_nbs() -> List[str]:
+def get_all_nbs(root_dir: Optional[str] = None) -> List[str]:
     """Get list of all the notebooks."""
-    return glob("**/*.ipynb", recursive=True)
+    return glob("**/*.ipynb", root_dir=root_dir, recursive=True)
 
 
-def get_all_mds() -> List[str]:
+def get_all_mds(root_dir: Optional[str] = None) -> List[str]:
     """Get list of all markdown files."""
-    return glob("**/*.md", recursive=True)
+    return glob("**/*.md", root_dir=root_dir, recursive=True)
 
 
 def get_modified_nbs() -> List[str]:
