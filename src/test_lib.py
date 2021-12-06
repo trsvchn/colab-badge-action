@@ -1,5 +1,6 @@
 import json
 import logging
+import string
 from argparse import Namespace
 
 import pytest
@@ -9,12 +10,23 @@ from lib import (
     Badge,
     File,
     Patterns,
+    append_ext_to_str,
+    append_ext_to_url,
+    check_nb_link,
+    get_all_mds,
+    get_all_nbs,
+    get_modified_mds,
+    get_modified_nbs,
     prepare_path_drive,
     prepare_path_local,
     prepare_path_remote,
     prepare_path_remote_full,
     prepare_path_self,
+    read_file,
+    read_md,
     read_nb,
+    write_file,
+    write_md,
     write_nb,
 )
 
@@ -30,26 +42,43 @@ def patterns():
 
 
 @pytest.fixture
-def min_notebook():
+def min_nb():
     """Minimal notebook."""
     return {"metadata": {}, "cells": [], "nbformat": 4, "nbformat_minor": 5}
 
 
 @pytest.fixture
-def make_tmp_nb(tmp_path, min_notebook):
+def min_md():
+    """Minimal md."""
+    return [line + "\n" for line in string.ascii_lowercase]
+
+
+@pytest.fixture
+def make_tmp_nb(tmp_path, min_nb):
     """tmp notebook."""
 
     def _make_tmp_nb(fname):
-        nb = min_notebook
         file_path = (tmp_path / fname).with_suffix(".ipynb")
-        write_nb(nb, file_path)
+        write_nb(min_nb, file_path)
         return file_path
 
     return _make_tmp_nb
 
 
-def test_read_nb(tmp_path, min_notebook):
-    expected = min_notebook
+@pytest.fixture
+def make_tmp_md(tmp_path, min_md):
+    """tmp md."""
+
+    def _make_tmp_md(fname):
+        file_path = (tmp_path / fname).with_suffix(".md")
+        write_md(min_md, file_path)
+        return file_path
+
+    return _make_tmp_md
+
+
+def test_read_nb(tmp_path, min_nb):
+    expected = min_nb
     fname = "min_nb.ipynb"
     file_path = tmp_path / fname
     with open(file_path, "w") as f:
@@ -60,19 +89,135 @@ def test_read_nb(tmp_path, min_notebook):
     assert nb == expected
 
 
-def test_write_nb(tmp_path, min_notebook):
-    expected = min_notebook
+def test_write_nb(tmp_path, min_nb):
+    expected = min_nb
     fname = "min_nb.ipynb"
     file_path = tmp_path / fname
 
     write_nb(expected, file_path)
 
-    assert (tmp_path / fname).is_file()
+    assert file_path.is_file()
     assert len([*tmp_path.iterdir()]) == 1
 
     with file_path.open() as f:
         nb = json.load(f)
     assert nb == expected
+
+
+def test_read_md(tmp_path, min_md):
+    expected = min_md
+    fname = "file.md"
+    file_path = tmp_path / fname
+    file_path.write_text("".join(min_md))
+
+    text = read_md(file_path)
+
+    assert text == expected
+
+
+def test_write_md(tmp_path):
+    data = "abcde"
+    data = [line + "\n" for line in data]
+    fname = "file.md"
+    file_path = tmp_path / fname
+
+    write_md(data, str(file_path))
+
+    assert file_path.is_file()
+    assert len([*tmp_path.iterdir()]) == 1
+
+    with open(file_path, "r") as f:
+        md = f.readlines()
+
+    assert md == data
+
+
+def test_read_file(make_tmp_nb, make_tmp_md, min_nb, min_md):
+    for file, expected in ((make_tmp_nb("file"), min_nb), (make_tmp_md("file"), min_md)):
+        data = read_file(file)
+        assert data == expected
+
+
+def test_write_file(tmp_path, min_nb, min_md):
+    for file, expected in ((tmp_path / "file.ipynb", min_nb), (tmp_path / "file.md", min_md)):
+        write_file(expected, file)
+        assert file.is_file()
+        assert read_file(file) == expected
+
+
+def test_get_all_nbs(make_tmp_nb):
+    expected = [make_tmp_nb(name + ".ipynb") for name in string.ascii_lowercase]
+    nbs = sorted(get_all_nbs(root_dir=expected[0].parent))
+    assert nbs == [file.name for file in expected]
+
+
+def test_get_all_mds(make_tmp_md):
+    expected = [make_tmp_md(name + ".md") for name in string.ascii_lowercase]
+    mds = sorted(get_all_mds(root_dir=expected[0].parent))
+    assert mds == [file.name for file in expected]
+
+
+def test_get_modified_nbs(monkeypatch, make_tmp_nb):
+    expected = [str(make_tmp_nb(file)) for file in string.ascii_lowercase]
+    with monkeypatch.context() as m:
+        m.setattr(lib, "getoutput", lambda cmd: "\n".join(expected))
+        files = get_modified_nbs()
+        assert files == expected
+
+
+def test_get_modified_mds(monkeypatch, make_tmp_md):
+    expected = [str(make_tmp_md(file)) for file in string.ascii_lowercase]
+    with monkeypatch.context() as m:
+        m.setattr(lib, "getoutput", lambda cmd: "\n".join(expected))
+        files = get_modified_mds()
+        assert files == expected
+
+
+@pytest.mark.parametrize(
+    "path, expected",
+    [
+        ("file", "file.ipynb"),
+        (".file.", ".file..ipynb"),
+        ("file.ipynb", "file.ipynb"),
+        ("./nbs/file.ipynb", "./nbs/file.ipynb"),
+    ],
+)
+def test_append_ext_to_str(path, expected):
+    path = append_ext_to_str(path)
+    assert path == expected
+
+
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        ("https://github.com/usr2/repo/blob/main/nb1.ipynb", "https://github.com/usr2/repo/blob/main/nb1.ipynb"),
+        ("https://github.com/usr2/repo/blob/main/nb1", "https://github.com/usr2/repo/blob/main/nb1.ipynb"),
+        ("https://github.com/usr2/repo/blob/main/.nb1.", "https://github.com/usr2/repo/blob/main/.nb1..ipynb"),
+    ],
+)
+def test_append_ext_to_url(url, expected):
+    url = append_ext_to_url(url)
+    assert url == expected
+
+
+def test_check_nb_link_ok(monkeypatch):
+    with monkeypatch.context() as m:
+        m.setattr(lib.http.client.HTTPSConnection, "request", lambda *args, **kw: None)
+        m.setattr(
+            lib.http.client.HTTPSConnection, "getresponse", lambda _: Namespace(**{"status": 200, "reason": "OK"})
+        )
+        res = check_nb_link("/usr/repo/blob/main/nb.ipynb")
+        assert res is None
+
+
+def test_check_nb_link_bad(monkeypatch):
+    with monkeypatch.context() as m:
+        m.setattr(lib.http.client.HTTPSConnection, "request", lambda *args, **kw: None)
+        m.setattr(
+            lib.http.client.HTTPSConnection, "getresponse", lambda _: Namespace(**{"status": 404, "reason": "Err"})
+        )
+        res = check_nb_link("/usr/repo/blob/main/nb.ipynb")
+        assert res == (404, "Err")
 
 
 @pytest.fixture
