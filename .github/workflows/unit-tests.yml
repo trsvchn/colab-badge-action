@@ -28,7 +28,7 @@ jobs:
         run: python -m pytest -vvv --color=yes --cov=src --cov-append --cov-report=xml ../tests
 
       - name: Upload Coverage to Codecov
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v2.1.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           working-directory: src
