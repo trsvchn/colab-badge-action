@@ -1,3 +1,4 @@
+import sys
 import json
 import logging
 import string
@@ -5,8 +6,9 @@ from argparse import Namespace
 
 import pytest
 
-from . import lib
-from .lib import (
+sys.path.append("src")
+import lib
+from lib import (
     Badge,
     File,
     Patterns,

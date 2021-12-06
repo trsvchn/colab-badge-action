@@ -24,9 +24,7 @@ jobs:
         run: mypy src/
 
       - name: Run Unit Tests
-        run: |
-          cp src/lib.py tests/
-          python -m pytest -vvv --color=yes --cov=src --cov-append --cov-report=xml tests/
+        run: pytest -vvv --color=yes --cov=src --cov-append --cov-report=xml tests/
 
       - name: Upload Coverage to Codecov
         uses: codecov/codecov-action@v2
