@@ -27,7 +27,7 @@ def main():
     # Check all or latest
     CHECK = os.environ["INPUT_CHECK"]  # 'all' | 'latest'
     # Track badges info (works only for notebooks with "self-badges").
-    TRACK = {"true": True, "false": False}.get(os.environ["INPUT_TRACK"], True)  # True | False
+    TRACK = {"true": True, "false": False}.get(os.environ["INPUT_UPDATE"], True)  # True | False
 
     if CHECK == "all":
         nbs = get_all_nbs()

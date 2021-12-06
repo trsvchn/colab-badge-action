@@ -18,17 +18,18 @@ jobs:
         run: pip install -U pip && pip install flake8 mypy pytest pytest-cov
 
       - name: Linting with Flake8
-        run: flake8 --max-line-length 120 --exclude "test_*" src/
+        run: flake8 --max-line-length 120 src/
 
       - name: Type Checking with Mypy
         run: mypy src/
 
       - name: Run Unit Tests
-        run: pytest -vvv --color=yes --cov=src --cov-append --cov-report=xml src/test_lib.py
+        working-directory: src
+        run: python -m pytest -vvv --color=yes --cov=src --cov-append --cov-report=xml ../tests
 
       - name: Upload Coverage to Codecov
-        uses: codecov/codecov-action@v2.1.0
+        uses: codecov/codecov-action@v2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: coverage.xml
+          file: src/coverage.xml
           fail_ci_if_error: true
