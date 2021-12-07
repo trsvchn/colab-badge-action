@@ -1,7 +1,7 @@
-import sys
 import json
 import logging
 import string
+import sys
 from argparse import Namespace
 
 import pytest
@@ -99,6 +99,17 @@ def file():
         return File(path=path, type=type, track=track, branch=branch, repo=repo)
 
     return _file
+
+
+@pytest.fixture
+def logger():
+    _logger = logging.getLogger("badge")
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter(fmt="::%(levelname)s file=%(file)s,line=%(line)s,title=%(title)s::%(message)s")
+    )
+    _logger.addHandler(handler)
+    return _logger
 
 
 def test_read_nb(tmp_path, min_nb):
@@ -245,46 +256,44 @@ def test_check_nb_link_bad(monkeypatch):
 
 
 @pytest.mark.parametrize("path, track", [("nb1.md", True), ("nb2.md", False)])
-def test_prepare_path_self_none(caplog, line, file, badge, patterns, path, track):
+def test_prepare_path_self_none(caplog, logger, line, file, badge, patterns, path, track):
     line, file = line(), file(path=path, type="md", track=track)
     match = patterns.badge.match(line.data)
     line_num = str(line.num)
-    col = str(match.start() + 1)
-    title = ":".join((file.path, line_num, col, " " + "Incorrect {{ badge }} usage."))
+    title = ":".join((file.path, line_num, " " + "Incorrect {{ badge }} usage."))
     level = "ERROR"
     message = (
         "You can use {{ badge }} only for notebooks, it is NOT possible to generate a badge for a md file! "
         "Use {{ badge <path> }} instead."
     )
     with caplog.at_level(logging.ERROR):
-        nb_path = prepare_path_self(match, line, file, badge)
+        nb_path = prepare_path_self(match, line, file, badge, logger)
         assert nb_path is None
         for record in caplog.records:
             assert record.file == file.path
             assert record.line == line_num
-            assert record.col == col
             assert record.title == title
             assert record.levelname == level
             assert record.message == message
 
 
 @pytest.mark.parametrize("path, track", [("nb1.md", True), ("nb2.md", False)])
-def test_prepare_path_self_error(line, file, badge, patterns, path, track):
+def test_prepare_path_self_error(logger, line, file, badge, patterns, path, track):
     line, file = line(), file(path=path, type="py", track=track)
     match = patterns.badge.match(line.data)
 
     with pytest.raises(ValueError):
-        nb_path = prepare_path_self(match, line, file, badge)
+        nb_path = prepare_path_self(match, line, file, badge, logger)
         assert nb_path is None
 
 
 @pytest.mark.parametrize("path, track", [("nb.ipynb", True), ("nb.ipynb", False)])
-def test_prepare_path_self(caplog, line, file, badge, patterns, path, track):
+def test_prepare_path_self(logger, line, file, badge, patterns, path, track):
     line, file = line(), file(path=path, type="notebook", track=track)
     match = patterns.badge.match(line.data)
 
     expected = badge.url.safe_substitute(repo=file.repo, branch=file.branch, file=file.path)
-    nb_path = prepare_path_self(match, line, file, badge)
+    nb_path = prepare_path_self(match, line, file, badge, logger)
     assert nb_path == expected
 
 
@@ -297,21 +306,19 @@ def test_prepare_path_self(caplog, line, file, badge, patterns, path, track):
         ("file.md", "nb2", "md"),
     ],
 )
-def test_prepare_path_local_none(caplog, line, file, badge, patterns, path, nb_path, type):
+def test_prepare_path_local_none(caplog, logger, line, file, badge, patterns, path, nb_path, type):
     line, file = line(data="{{ " + f"badge {nb_path}" + " }}"), file(path=path, type=type)
     match = patterns.badge.match(line.data)
     line_num = str(line.num)
-    col = str(match.start() + 1)
-    title = ":".join((file.path, line_num, col, " " + "File doesn't exist."))
+    title = ":".join((file.path, line_num, " " + "File doesn't exist."))
     level = "ERROR"
     message = f"Specified file {nb_path} doesn't exist in current repository."
     with caplog.at_level(logging.ERROR):
-        path = prepare_path_local(match, nb_path, line, file, badge)
+        path = prepare_path_local(match, nb_path, line, file, badge, logger)
         assert path is None
         for record in caplog.records:
             assert record.file == file.path
             assert record.line == line_num
-            assert record.col == col
             assert record.title == title
             assert record.levelname == level
             assert record.message == message
@@ -326,13 +333,13 @@ def test_prepare_path_local_none(caplog, line, file, badge, patterns, path, nb_p
         ("file.md", "nb2", "md"),
     ],
 )
-def test_prepare_path_local(make_tmp_nb, line, file, badge, patterns, path, nb_path, type):
+def test_prepare_path_local(logger, make_tmp_nb, line, file, badge, patterns, path, nb_path, type):
     tmp_nb = make_tmp_nb(nb_path)
     line, file = line(data="{{ " + f"badge {tmp_nb}" + " }}"), file(path=path, type=type)
     match = patterns.badge.match(line.data)
     expected = badge.url.safe_substitute(repo=file.repo, branch=file.branch, file=tmp_nb)
 
-    path = prepare_path_local(match, tmp_nb, line, file, badge)
+    path = prepare_path_local(match, tmp_nb, line, file, badge, logger)
     assert path == expected
 
 
@@ -345,7 +352,7 @@ def test_prepare_path_local(make_tmp_nb, line, file, badge, patterns, path, nb_p
         ("file.md", "/usr2/repo/blob/main/nb4"),
     ],
 )
-def test_prepare_path_remote_none(caplog, monkeypatch, line, file, badge, patterns, path, nb_path):
+def test_prepare_path_remote_none(caplog, logger, monkeypatch, line, file, badge, patterns, path, nb_path):
     _line, _file = line(data="{{ " + f"badge {nb_path}" + " }}"), file(path=path)
     match = patterns.badge.match(_line.data)
 
@@ -354,17 +361,15 @@ def test_prepare_path_remote_none(caplog, monkeypatch, line, file, badge, patter
         m.setattr(lib, "check_nb_link", lambda nb: (status, reason))
 
         line_num = str(_line.num)
-        col = str(match.start() + 1)
-        title = ":".join((_file.path, line_num, col, " " + f"{status} {reason}"))
+        title = ":".join((_file.path, line_num, " " + f"{status} {reason}"))
         level = "ERROR"
         message = f"Specified file {nb_path} {reason}."
         with caplog.at_level(logging.ERROR):
-            path = prepare_path_remote(match, nb_path, _line, _file, badge)
+            path = prepare_path_remote(match, nb_path, _line, _file, badge, logger)
             assert path is None
             for record in caplog.records:
                 assert record.file == _file.path
                 assert record.line == line_num
-                assert record.col == col
                 assert record.title == title
                 assert record.levelname == level
                 assert record.message == message
@@ -379,7 +384,7 @@ def test_prepare_path_remote_none(caplog, monkeypatch, line, file, badge, patter
         ("file.md", "/usr2/repo/blob/main/nb4", "/usr2/repo/blob/main/nb4.ipynb"),
     ],
 )
-def test_prepare_path_remote(monkeypatch, line, file, badge, patterns, path, nb_path, exp_nb_path):
+def test_prepare_path_remote(logger, monkeypatch, line, file, badge, patterns, path, nb_path, exp_nb_path):
     _line, _file = line(data="{{ " + f"badge {nb_path}" + " }}"), file(path=path)
     match = patterns.badge.match(_line.data)
 
@@ -387,7 +392,7 @@ def test_prepare_path_remote(monkeypatch, line, file, badge, patterns, path, nb_
         m.setattr(lib, "check_nb_link", lambda nb: None)
 
         expected = badge.url2.safe_substitute(file=exp_nb_path)
-        path = prepare_path_remote(match, nb_path, _line, _file, badge)
+        path = prepare_path_remote(match, nb_path, _line, _file, badge, logger)
         assert path == expected
 
 
@@ -400,23 +405,21 @@ def test_prepare_path_remote(monkeypatch, line, file, badge, patterns, path, nb_
         ("file.md", "https://github.com/usr2/repo/blob/main/nb2"),
     ],
 )
-def test_prepare_path_remote_full_none(caplog, line, file, badge, patterns, path, nb_path):
+def test_prepare_path_remote_full_none(caplog, logger, line, file, badge, patterns, path, nb_path):
     _line, _file = line(data="{{ " + f"badge {nb_path}" + " }}"), file(path=path)
     match = patterns.badge.match(_line.data)
 
     line_num = str(_line.num)
-    col = str(match.start() + 1)
-    title = ":".join((_file.path, line_num, col, " " + "Wrong hostname."))
+    title = ":".join((_file.path, line_num, " " + "Wrong hostname."))
     level = "ERROR"
     message = "Currently only notebooks hosted on GitHub are supported."
     nb_path = nb_path.replace("github.com", "example.com")
     with caplog.at_level(logging.ERROR):
-        path = prepare_path_remote_full(match, nb_path, _line, _file, badge)
+        path = prepare_path_remote_full(match, nb_path, _line, _file, badge, logger)
         assert path is None
         for record in caplog.records:
             assert record.file == _file.path
             assert record.line == line_num
-            assert record.col == col
             assert record.title == title
             assert record.levelname == level
             assert record.message == message
@@ -431,12 +434,12 @@ def test_prepare_path_remote_full_none(caplog, line, file, badge, patterns, path
         ("file.md", "https://github.com/usr2/repo/blob/main/nb2"),
     ],
 )
-def test_prepare_path_remote_full_none_none(monkeypatch, line, file, badge, patterns, path, nb_path):
+def test_prepare_path_remote_full_none_none(logger, monkeypatch, line, file, badge, patterns, path, nb_path):
     _line, _file = line(data="{{ " + f"badge {nb_path}" + " }}"), file(path=path)
     match = patterns.badge.match(_line.data)
     with monkeypatch.context() as m:
-        m.setattr(lib, "prepare_path_remote", lambda match, nb_path, line, file, badge: None)
-        path = prepare_path_remote_full(match, nb_path, _line, _file, badge)
+        m.setattr(lib, "prepare_path_remote", lambda match, nb_path, line, file, badge, logger: None)
+        path = prepare_path_remote_full(match, nb_path, _line, _file, badge, logger)
         assert path is None
 
 
@@ -457,19 +460,19 @@ def test_prepare_path_remote_full_none_none(monkeypatch, line, file, badge, patt
         ("file.md", "https://github.com/usr2/repo/blob/main/nb2", "https://github.com/usr2/repo/blob/main/nb2.ipynb"),
     ],
 )
-def test_prepare_path_remote_full(monkeypatch, line, file, badge, patterns, path, nb_path, exp_nb_path):
+def test_prepare_path_remote_full(logger, monkeypatch, line, file, badge, patterns, path, nb_path, exp_nb_path):
     _line, _file = line(data="{{ " + f"badge {nb_path}" + " }}"), file(path=path)
     match = patterns.badge.match(_line.data)
     with monkeypatch.context() as m:
         m.setattr(
             lib,
             "prepare_path_remote",
-            lambda match, nb_path, line, file, badge: badge.url2.safe_substitute(
+            lambda match, nb_path, line, file, badge, logger: badge.url2.safe_substitute(
                 file=nb_path.lstrip("https://github.com")
             ),
         )
         expected = badge.url2.safe_substitute(file=exp_nb_path.lstrip("https://github.com"))
-        path = prepare_path_remote_full(match, nb_path, _line, _file, badge)
+        path = prepare_path_remote_full(match, nb_path, _line, _file, badge, logger)
         assert path == expected
 
 
@@ -479,8 +482,8 @@ def test_prepare_path_drive(badge, nb_path):
 
 
 @pytest.mark.parametrize("data", ["foo bar", "badge", "{{ bdg }}", "{{ badg }}"])
-def test_add_badge_none(line, file, badge, patterns, data):
-    line = add_badge(line=line(data=data), file=file(), badge=badge, patterns=patterns)
+def test_add_badge_none(logger, line, file, badge, patterns, data):
+    line = add_badge(line=line(data=data), file=file(), badge=badge, patterns=patterns, logger=logger)
     assert line is None
 
 
@@ -509,12 +512,12 @@ def test_add_badge_none(line, file, badge, patterns, data):
         ("{{ badge }}", "nb.md", "md", True, None),
     ],
 )
-def test_add_badge_self(line, file, badge, patterns, data, path, type, track, expected):
+def test_add_badge_self(logger, line, file, badge, patterns, data, path, type, track, expected):
     _line = line(data=data)
     _file = file(path=path, type=type, track=track)
     expected = line(data=expected) if expected else None
 
-    new_line = add_badge(line=_line, file=_file, badge=badge, patterns=patterns)
+    new_line = add_badge(line=_line, file=_file, badge=badge, patterns=patterns, logger=logger)
     assert new_line == expected
 
 
@@ -526,7 +529,7 @@ def test_add_badge_self(line, file, badge, patterns, data, path, type, track, ex
         ("{{   badge     nbs/nb.ipynb }}", " nbs/nb.ipynb"),
     ],
 )
-def test_add_badge_local(monkeypatch, line, file, badge, patterns, data, nb_path):
+def test_add_badge_local(logger, monkeypatch, line, file, badge, patterns, data, nb_path):
     nb_path = append_ext_to_str(nb_path)
     url = f"https://colab.research.google.com/github/usr/repo/blob/main/{nb_path}"
     _line = line(data=data)
@@ -534,8 +537,8 @@ def test_add_badge_local(monkeypatch, line, file, badge, patterns, data, nb_path
     expected = line(data=f"[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]({url})")
 
     with monkeypatch.context() as m:
-        m.setattr(lib, "prepare_path_local", lambda match, nb_path, line, file, badge: url)
-        new_line = add_badge(line=_line, file=_file, badge=badge, patterns=patterns)
+        m.setattr(lib, "prepare_path_local", lambda match, nb_path, line, file, badge, logger: url)
+        new_line = add_badge(line=_line, file=_file, badge=badge, patterns=patterns, logger=logger)
         assert new_line == expected
 
 
@@ -543,12 +546,12 @@ def test_add_badge_local(monkeypatch, line, file, badge, patterns, data, nb_path
     "data, nb_path",
     [("{{ badge //drive/0000 }}", "//drive/0000"), ("{{ badge                 //drive/1111   }}", "//drive/1111")],
 )
-def test_add_badge_drive(monkeypatch, line, file, badge, patterns, data, nb_path):
+def test_add_badge_drive(logger, line, file, badge, patterns, data, nb_path):
     url = f"https://colab.research.google.com/drive/{nb_path.lstrip('//drive/')}"
     _line = line(data=data)
     _file = file()
     expected = line(data=f"[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]({url})")
-    new_line = add_badge(line=_line, file=_file, badge=badge, patterns=patterns)
+    new_line = add_badge(line=_line, file=_file, badge=badge, patterns=patterns, logger=logger)
     assert new_line == expected
 
 
@@ -560,13 +563,13 @@ def test_add_badge_drive(monkeypatch, line, file, badge, patterns, data, nb_path
         "{{   badge   /usr2/repo2/blob/dev/nbs/nb.ipynb }}",
     ],
 )
-def test_add_badge_remote_none(monkeypatch, line, file, badge, patterns, data):
+def test_add_badge_remote_none(logger, monkeypatch, line, file, badge, patterns, data):
     _line = line(data=data)
     _file = file()
 
     with monkeypatch.context() as m:
-        m.setattr(lib, "prepare_path_remote", lambda match, nb_path, line, file, badge: None)
-        new_line = add_badge(line=_line, file=_file, badge=badge, patterns=patterns)
+        m.setattr(lib, "prepare_path_remote", lambda match, nb_path, line, file, badge, logger: None)
+        new_line = add_badge(line=_line, file=_file, badge=badge, patterns=patterns, logger=logger)
         assert new_line is None
 
 
@@ -578,7 +581,7 @@ def test_add_badge_remote_none(monkeypatch, line, file, badge, patterns, data):
         ("{{   badge     /usr2/repo2/blob/dev/nbs/nb.ipynb }}", "/usr2/repo2/blob/dev/nbs/nb.ipynb"),
     ],
 )
-def test_add_badge_remote(monkeypatch, line, file, badge, patterns, data, nb_path):
+def test_add_badge_remote(logger, monkeypatch, line, file, badge, patterns, data, nb_path):
     nb_path = append_ext_to_str(nb_path)
     url = f"https://colab.research.google.com/github/{nb_path}"
     _line = line(data=data)
@@ -586,8 +589,8 @@ def test_add_badge_remote(monkeypatch, line, file, badge, patterns, data, nb_pat
     expected = line(data=f"[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]({url})")
 
     with monkeypatch.context() as m:
-        m.setattr(lib, "prepare_path_remote", lambda match, nb_path, line, file, badge: url)
-        new_line = add_badge(line=_line, file=_file, badge=badge, patterns=patterns)
+        m.setattr(lib, "prepare_path_remote", lambda match, nb_path, line, file, badge, logger: url)
+        new_line = add_badge(line=_line, file=_file, badge=badge, patterns=patterns, logger=logger)
         assert new_line == expected
 
 
@@ -599,13 +602,13 @@ def test_add_badge_remote(monkeypatch, line, file, badge, patterns, data, nb_pat
         "{{   badge   https://github.com/usr2/repo2/blob/dev/nbs/nb.ipynb }}",
     ],
 )
-def test_add_badge_remote_full_none(monkeypatch, line, file, badge, patterns, data):
+def test_add_badge_remote_full_none(logger, monkeypatch, line, file, badge, patterns, data):
     _line = line(data=data)
     _file = file()
 
     with monkeypatch.context() as m:
-        m.setattr(lib, "prepare_path_remote_full", lambda match, nb_path, line, file, badge: None)
-        new_line = add_badge(line=_line, file=_file, badge=badge, patterns=patterns)
+        m.setattr(lib, "prepare_path_remote_full", lambda match, nb_path, line, file, badge, logger: None)
+        new_line = add_badge(line=_line, file=_file, badge=badge, patterns=patterns, logger=logger)
         assert new_line is None
 
 
@@ -623,7 +626,7 @@ def test_add_badge_remote_full_none(monkeypatch, line, file, badge, patterns, da
         ),
     ],
 )
-def test_add_badge_remote_full(monkeypatch, line, file, badge, patterns, data, nb_path):
+def test_add_badge_remote_full(logger, monkeypatch, line, file, badge, patterns, data, nb_path):
     nb_path = append_ext_to_url(nb_path)
     url = f"https://colab.research.google.com/github/{nb_path.replace('https://github.com/', '')}"
     _line = line(data=data)
@@ -631,8 +634,8 @@ def test_add_badge_remote_full(monkeypatch, line, file, badge, patterns, data, n
     expected = line(data=f"[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]({url})")
 
     with monkeypatch.context() as m:
-        m.setattr(lib, "prepare_path_remote_full", lambda match, nb_path, line, file, badge: url)
-        new_line = add_badge(line=_line, file=_file, badge=badge, patterns=patterns)
+        m.setattr(lib, "prepare_path_remote_full", lambda match, nb_path, line, file, badge, logger: url)
+        new_line = add_badge(line=_line, file=_file, badge=badge, patterns=patterns, logger=logger)
         assert new_line == expected
 
 
@@ -665,67 +668,67 @@ def test_update_badge(line, file, badge, patterns, path, new_path):
 
 
 @pytest.mark.parametrize("data", ["", "{badge}", "{ badge }", "{{ badge }", "{{  }}", "badge"])
-def test_check_md_line_none(line, file, badge, patterns, data):
+def test_check_md_line_none(logger, line, file, badge, patterns, data):
     _line = line(data=data)
     for track in (True, False):
-        line2 = check_md_line(line=_line, file=file(track=track), badge=badge, patterns=patterns)
+        line2 = check_md_line(line=_line, file=file(track=track), badge=badge, patterns=patterns, logger=logger)
         assert line2 is None
 
 
-def test_check_md_line(monkeypatch, line, file, badge, patterns):
+def test_check_md_line(logger, monkeypatch, line, file, badge, patterns):
     _line = line(data="foo.bar")
     for track in (True, False):
         with monkeypatch.context() as m:
             m.setattr(lib, "update_badge", lambda line, file, badge, patterns: _line)
-            m.setattr(lib, "add_badge", lambda line, file, badge, patterns: _line)
-            line2 = check_md_line(line=_line, file=file(track=track), badge=badge, patterns=patterns)
+            m.setattr(lib, "add_badge", lambda line, file, badge, patterns, logger: _line)
+            line2 = check_md_line(line=_line, file=file(track=track), badge=badge, patterns=patterns, logger=logger)
             assert line2 == _line
 
 
-def test_check_cell_none(file, badge, patterns):
+def test_check_cell_none(logger, file, badge, patterns):
     cell = {"source": ["\n", "{{ badg }}"]}
-    cell = check_cell(cell=cell, file=file(), badge=badge, patterns=patterns)
+    cell = check_cell(cell=cell, file=file(), badge=badge, patterns=patterns, logger=logger)
     assert cell is None
 
 
-def test_check_cell(monkeypatch, line, file, badge, patterns):
+def test_check_cell(logger, monkeypatch, line, file, badge, patterns):
     _line = line
     _text = ["foo", "bar", "foo", "bar"]
     text = ["foo", "bar", "foo", "bar"]
     cell = {"source": text}
     with monkeypatch.context() as m:
-        m.setattr(lib, "check_md_line", lambda line, file, badge, patterns: _line(data=_text.pop(0)))
-        cell2 = check_cell(cell=cell, file=file(), badge=badge, patterns=patterns)
+        m.setattr(lib, "check_md_line", lambda line, file, badge, patterns, logger: _line(data=_text.pop(0)))
+        cell2 = check_cell(cell=cell, file=file(), badge=badge, patterns=patterns, logger=logger)
         assert cell2 == cell
 
 
-def test_check_md_none(file, badge, patterns):
+def test_check_md_none(logger, file, badge, patterns):
     text = ["\n", "{{ badg }}"]
-    text = check_md(text=text, file=file(), badge=badge, patterns=patterns)
+    text = check_md(text=text, file=file(), badge=badge, patterns=patterns, logger=logger)
     assert text is None
 
 
-def test_check_md(monkeypatch, line, file, badge, patterns):
+def test_check_md(logger, monkeypatch, line, file, badge, patterns):
     _line = line
     _text = ["foo", "bar", "foo", "bar"]
     text = ["foo", "bar", "foo", "bar"]
     with monkeypatch.context() as m:
-        m.setattr(lib, "check_md_line", lambda line, file, badge, patterns: _line(data=_text.pop(0)))
-        text2 = check_md(text=text, file=file(), badge=badge, patterns=patterns)
+        m.setattr(lib, "check_md_line", lambda line, file, badge, patterns, logger: _line(data=_text.pop(0)))
+        text2 = check_md(text=text, file=file(), badge=badge, patterns=patterns, logger=logger)
         assert text2 == text
 
 
-def test_check_cells_none(file, badge, patterns):
+def test_check_cells_none(logger, file, badge, patterns):
     cells = [
         {"source": ["foo\n", "{{ foo }}"], "cell_type": "markdown"},
         {"source": ["bar\n", "foo{{{}}} }}"], "cell_type": "code"},
         {"source": ["bar\n", "foo{{{}}} }}"], "cell_type": "markdown"},
     ]
-    cells = check_cells(cells=cells, file=file(), badge=badge, patterns=patterns)
+    cells = check_cells(cells=cells, file=file(), badge=badge, patterns=patterns, logger=logger)
     assert cells is None
 
 
-def test_check_cells(monkeypatch, file, badge, patterns):
+def test_check_cells(logger, monkeypatch, file, badge, patterns):
     cells = [
         {"source": ["foo", "bar"], "cell_type": "markdown"},
         {"source": ["bar", "foo"], "cell_type": "code"},
@@ -737,6 +740,6 @@ def test_check_cells(monkeypatch, file, badge, patterns):
         {"source": ["bar", "foo"], "cell_type": "markdown"},
     ]
     with monkeypatch.context() as m:
-        m.setattr(lib, "check_cell", lambda cell, file, badge, patterns: _cells.pop(0))
-        cells2 = check_cells(cells=cells, file=file(), badge=badge, patterns=patterns)
+        m.setattr(lib, "check_cell", lambda cell, file, badge, patterns, logger: _cells.pop(0))
+        cells2 = check_cells(cells=cells, file=file(), badge=badge, patterns=patterns, logger=logger)
         assert cells2 == cells

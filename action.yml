@@ -7,10 +7,6 @@ inputs:
     description: "Which notebooks to check: all or just committed: all | latest."
     default: "all"
     required: false
-  update:
-    description: "Update badges. Only badges added by this action will be updated."
-    default: true
-    required: false
   target_branch:
     description: "Branch that the badge will target. Defaults to the current branch."
     default: ""
@@ -18,6 +14,14 @@ inputs:
   target_repository:
     description: "Repository that the badge will target. Defaults to the current repository."
     default: ""
+    required: false
+  update:
+    description: "Update badges. Only badges added by this action will be updated."
+    default: true
+    required: false
+  verbose:
+    description: "Verbose mode. Print some information. Defaults to false."
+    default: false
     required: false
 
 runs:

@@ -1,17 +1,17 @@
 import http.client
 import json
-import logging
 import os
 import re
 import urllib.parse
 from argparse import Namespace
 from glob import glob
+from logging import Logger
 from pathlib import Path
 from string import Template
 from subprocess import getoutput
 from typing import Iterable, List, NamedTuple, Optional, Tuple, Union
 
-logging.basicConfig(format="::%(levelname)s file=%(file)s,line=%(line)s,col=%(col)s,title=%(title)s::%(message)s")
+# logging.basicConfig(format="::%(levelname)s file=%(file)s,line=%(line)s,title=%(title)s::%(message)s")
 
 
 class File(NamedTuple):
@@ -155,7 +155,9 @@ def prepare_path_drive(nb_path: str, badge: Badge) -> Optional[str]:
     return success
 
 
-def prepare_path_remote(match: re.Match, nb_path: str, line: Namespace, file: File, badge: Badge) -> Optional[str]:
+def prepare_path_remote(
+    match: re.Match, nb_path: str, line: Namespace, file: File, badge: Badge, logger: Logger
+) -> Optional[str]:
     success = None
     nb_path_ext = append_ext_to_url(nb_path)
     res = check_nb_link(nb_path_ext)
@@ -165,16 +167,18 @@ def prepare_path_remote(match: re.Match, nb_path: str, line: Namespace, file: Fi
         success = nb_path_url
     # Notebook: bad link (on github).
     else:
-        line_num_str, col, status, reason = map(str, (line.num or "", match.start() + 1, res[0], res[1]))
-        title = ":".join((file.path, line_num_str, col, " " + f"{status} {reason}"))
-        logging.error(
+        line_num_str, status, reason = map(str, (line.num or "", res[0], res[1]))
+        title = ":".join((file.path, line_num_str, " " + f"{status} {reason}"))
+        logger.error(
             f"Specified file {nb_path} {reason}.",
-            extra={"file": file.path, "line": line_num_str, "col": col, "title": title},
+            extra={"file": file.path, "line": line_num_str, "title": title},
         )
     return success
 
 
-def prepare_path_remote_full(match: re.Match, nb_path: str, line: Namespace, file: File, badge: Badge) -> Optional[str]:
+def prepare_path_remote_full(
+    match: re.Match, nb_path: str, line: Namespace, file: File, badge: Badge, logger: Logger
+) -> Optional[str]:
     success = None
     nb_path_ext = append_ext_to_url(nb_path)
     # Check hostname.
@@ -183,21 +187,23 @@ def prepare_path_remote_full(match: re.Match, nb_path: str, line: Namespace, fil
     # Only github is allowed.
     if nb_path_parse_res.hostname == "github.com":
         # Get notebook path.
-        nb_path_url = prepare_path_remote(match, nb_path_parse_res.path, line, file, badge)
+        nb_path_url = prepare_path_remote(match, nb_path_parse_res.path, line, file, badge, logger)
         if nb_path_url is not None:
             success = nb_path_url
     # Host is not supported.
     else:
-        line_num_str, col = map(str, (line.num or "", match.start() + 1))
-        title = ":".join((file.path, line_num_str, col, " " + "Wrong hostname."))
-        logging.error(
+        line_num_str = str(line.num or "")
+        title = ":".join((file.path, line_num_str, " " + "Wrong hostname."))
+        logger.error(
             "Currently only notebooks hosted on GitHub are supported.",
-            extra={"file": file.path, "line": line_num_str, "col": col, "title": title},
+            extra={"file": file.path, "line": line_num_str, "title": title},
         )
     return success
 
 
-def prepare_path_local(match: re.Match, nb_path: str, line: Namespace, file: File, badge: Badge) -> Optional[str]:
+def prepare_path_local(
+    match: re.Match, nb_path: str, line: Namespace, file: File, badge: Badge, logger: Logger
+) -> Optional[str]:
     success = None
     nb_path_ext = append_ext_to_str(nb_path)
     # Check file existence.
@@ -208,16 +214,16 @@ def prepare_path_local(match: re.Match, nb_path: str, line: Namespace, file: Fil
         success = nb_path_url
     # No such file.
     else:
-        line_num_str, col = map(str, (line.num or "", match.start() + 1))
-        title = ":".join((file.path, line_num_str, col, " " + "File doesn't exist."))
-        logging.error(
+        line_num_str = str(line.num or "")
+        title = ":".join((file.path, line_num_str, " " + "File doesn't exist."))
+        logger.error(
             f"Specified file {nb_path} doesn't exist in current repository.",
-            extra={"file": file.path, "line": line_num_str, "col": col, "title": title},
+            extra={"file": file.path, "line": line_num_str, "title": title},
         )
     return success
 
 
-def prepare_path_self(match: re.Match, line: Namespace, file: File, badge: Badge) -> Optional[str]:
+def prepare_path_self(match: re.Match, line: Namespace, file: File, badge: Badge, logger: Logger) -> Optional[str]:
     success = None
     # Check file type.
     if file.type == "notebook":
@@ -228,13 +234,13 @@ def prepare_path_self(match: re.Match, line: Namespace, file: File, badge: Badge
         success = nb_path_url
     # Markdown points to itself -> incorrect.
     elif file.type == "md":
-        line_num_str, col = map(str, (line.num or "", match.start() + 1))
-        title = ":".join((file.path, line_num_str, col, " " + "Incorrect {{ badge }} usage."))
-        logging.error(
+        line_num_str = str(line.num or "")
+        title = ":".join((file.path, line_num_str, " " + "Incorrect {{ badge }} usage."))
+        logger.error(
             "You can use {{ badge }} only for notebooks, "
             "it is NOT possible to generate a badge for a md file! "
             "Use {{ badge <path> }} instead.",
-            extra={"file": file.path, "line": line_num_str, "col": col, "title": title},
+            extra={"file": file.path, "line": line_num_str, "title": title},
         )
     # Anything else is invalid.
     else:
@@ -243,7 +249,7 @@ def prepare_path_self(match: re.Match, line: Namespace, file: File, badge: Badge
     return success
 
 
-def add_badge(line: Namespace, file: File, badge: Badge, patterns: Patterns) -> Optional[Namespace]:
+def add_badge(line: Namespace, file: File, badge: Badge, patterns: Patterns, logger: Logger) -> Optional[Namespace]:
     """Inserts "Open in Colab" badge."""
     updated = False
     badge_matches = patterns.badge.finditer(line.data)
@@ -260,20 +266,20 @@ def add_badge(line: Namespace, file: File, badge: Badge, patterns: Patterns) -> 
                         nb_path_url = prepare_path_drive(nb_path, badge)
                     # Notebook from remote repo.
                     else:
-                        nb_path_url = prepare_path_remote(badge_match, nb_path, line, file, badge)
+                        nb_path_url = prepare_path_remote(badge_match, nb_path, line, file, badge, logger)
                 # Notebook from local (repo) repo.
                 else:
-                    nb_path_url = prepare_path_local(badge_match, nb_path, line, file, badge)
+                    nb_path_url = prepare_path_local(badge_match, nb_path, line, file, badge, logger)
             # Full url -> notebook from remote repo.
             else:
-                nb_path_url = prepare_path_remote_full(badge_match, nb_path, line, file, badge)
+                nb_path_url = prepare_path_remote_full(badge_match, nb_path, line, file, badge, logger)
             if nb_path_url is None:
                 continue
             # Prepare code badge
             badge_code = badge.md.safe_substitute(url=nb_path_url)
         # Self-Notebook (notebook points to itself).
         else:
-            nb_path_url = prepare_path_self(badge_match, line, file, badge)
+            nb_path_url = prepare_path_self(badge_match, line, file, badge, logger)
             if nb_path_url is None:
                 continue
             # If track, add html code allowing tracking.
@@ -310,7 +316,7 @@ def update_badge(line: Namespace, file: File, badge: Badge, patterns: Patterns) 
     return line if updated else None
 
 
-def check_md_line(line: Namespace, file: File, badge: Badge, patterns: Patterns) -> Optional[Namespace]:
+def check_md_line(line: Namespace, file: File, badge: Badge, patterns: Patterns, logger: Logger) -> Optional[Namespace]:
     updated = False
     # If a there is a badge - check the repo and the branch.
     if file.track:
@@ -320,7 +326,7 @@ def check_md_line(line: Namespace, file: File, badge: Badge, patterns: Patterns)
             line = new_line
             updated = True
     # Add badge code.
-    new_line = add_badge(line, file, badge, patterns)
+    new_line = add_badge(line, file, badge, patterns, logger)
     if new_line:
         line = new_line
         updated = True
@@ -328,7 +334,7 @@ def check_md_line(line: Namespace, file: File, badge: Badge, patterns: Patterns)
     return line if updated else None
 
 
-def check_cell(cell: dict, file: File, badge: Badge, patterns: Patterns) -> Optional[dict]:
+def check_cell(cell: dict, file: File, badge: Badge, patterns: Patterns, logger: Logger) -> Optional[dict]:
     """Updates/Adds badge for jupyter markdown cell."""
     updated = False
     # Get source.
@@ -336,7 +342,7 @@ def check_cell(cell: dict, file: File, badge: Badge, patterns: Patterns) -> Opti
     # Iterate over source lines.
     for i, l in enumerate(text):
         line = Namespace(**{"data": l, "num": 1})
-        new_line = check_md_line(line, file, badge, patterns)
+        new_line = check_md_line(line, file, badge, patterns, logger)
         if new_line:
             text[i] = new_line.data
             updated = True
@@ -344,13 +350,13 @@ def check_cell(cell: dict, file: File, badge: Badge, patterns: Patterns) -> Opti
     return cell if updated else None
 
 
-def check_md(text: List[str], file: File, badge: Badge, patterns: Patterns) -> Optional[List[str]]:
+def check_md(text: List[str], file: File, badge: Badge, patterns: Patterns, logger: Logger) -> Optional[List[str]]:
     """Updates/Adds badge for markdown file."""
     updated = False
     # Iterate over source lines.
     for i, l in enumerate(text):
         line = Namespace(**{"data": l, "num": i + 1})
-        new_line = check_md_line(line, file, badge, patterns)
+        new_line = check_md_line(line, file, badge, patterns, logger)
         if new_line:
             text[i] = new_line.data
             updated = True
@@ -358,12 +364,14 @@ def check_md(text: List[str], file: File, badge: Badge, patterns: Patterns) -> O
     return text if updated else None
 
 
-def check_cells(cells: List[dict], file: File, badge: Badge, patterns: Patterns) -> Optional[List[dict]]:
+def check_cells(
+    cells: List[dict], file: File, badge: Badge, patterns: Patterns, logger: Logger
+) -> Optional[List[dict]]:
     updated = False
     for cell_idx, cell in enumerate(cells):
         # Check only markdown cells.
         if cell["cell_type"] == "markdown":
-            new_cell = check_cell(cell, file, badge, patterns)
+            new_cell = check_cell(cell, file, badge, patterns, logger)
             if new_cell is not None:
                 cell = new_cell
                 cells[cell_idx] = cell
