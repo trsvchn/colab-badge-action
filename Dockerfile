@@ -1,4 +1,3 @@
-FROM python:3
-
-ADD ./src/entrypoint.py /entrypoint.py
-ENTRYPOINT ["python", "/entrypoint.py"]
+FROM python:3.10
+COPY ./src /cba/
+ENTRYPOINT ["python", "/cba/action.py"]

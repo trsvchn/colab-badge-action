@@ -1,29 +1,33 @@
-name: 'Colab Badge Action'
+name: "Colab Badge Action"
 author: trsvchn
-description: 'Inserts/Updates Colab Badges within Jupyter Notebooks'
+description: "Inserts/Updates Colab Badges within Jupyter Notebooks."
 
 inputs:
   check:
-    description: 'Which notebooks to check: all or just committed: all | latest'
-    default: 'all'
-    required: false
-  update:
-    description: 'Update badges. Only badges added by this action will be updated'
-    default: true
+    description: "Which notebooks to check: all or just committed: all | latest."
+    default: "all"
     required: false
   target_branch:
-    description: 'Branch that the badge will target. Defaults to the current branch.'
-    default: ''
+    description: "Branch that the badge will target. Defaults to the current branch."
+    default: ""
     required: false
   target_repository:
-    description: 'Repository that the badge will target. Defaults to the current repository.'
-    default: ''
+    description: "Repository that the badge will target. Defaults to the current repository."
+    default: ""
+    required: false
+  update:
+    description: "Update badges. Only badges added by this action will be updated."
+    default: true
+    required: false
+  verbose:
+    description: "Verbose mode. Print some information. Defaults to false."
+    default: false
     required: false
 
 runs:
-  using: 'docker'
-  image: 'Dockerfile'
+  using: "docker"
+  image: "Dockerfile"
 
 branding:
-  icon: 'git-pull-request'
-  color: 'yellow'
+  icon: "git-pull-request"
+  color: "yellow"
