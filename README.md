@@ -9,11 +9,11 @@ Adds "Open in Colab" badges to Jupyter Notebooks and Markdown files. Updates bad
 
 ### Badge Tag
 
-- Use `{{ badge }}` tag  to generate a badge for the notebook containing this tag (self-linking). Works only for Jupyter notebooks.
+- Use `{{ badge }}` tag to generate a badge for the notebook containing this tag (self-linking). Works only for Jupyter notebooks.
 
-The following options work for bath Jupyter and Markdown files (new in `v4`):
+The following options work for both Jupyter and Markdown files (new in `v4`):
 
-- Use `{{ badge nb_path }}` tag to generate a badge for a local notebook `nb_path`, and insert it to the file containing that tag (tag will be replaced with generated badge code). e.g. `{{ badge dir1/di2/nb.ipynb }}`.
+- Use `{{ badge nb_path }}` tag to generate a badge for a local notebook `nb_path`, and insert it to the file containing that tag (tag will be replaced with generated badge code). e.g. `{{ badge dir1/dir2/nb.ipynb }}`.
 - Use `{{ badge /nb_path }}` tag to generate a badge for a remote (located in another repo) notebook `/nb_path`, and insert it to the file containing that tag. e.g. `{{ badge /usr2/repo/blob/main/nb.ipynb }}`. You can use full link (url) as well: `{{ badge https://github.com/usr2/repo/blob/main/nb.ipynb }}`.
 - Use `{{ badge //drive/nb_id }}` tag to generate a badge for google drive notebook, and insert it to the file containing that tag. e.g. `{{ badge //drive/abcde }}`
 
